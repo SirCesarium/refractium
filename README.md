@@ -1,5 +1,8 @@
 # T-Port
 
+![CI](https://github.com/SirCesarium/t-port/actions/workflows/ci.yml/badge.svg)
+![Release](https://github.com/SirCesarium/t-port/actions/workflows/release.yml/badge.svg)
+
 T-Port is a lightweight L4 protocol multiplexer. It listens on a single TCP port and routes incoming traffic to different backends based on the initial bytes of the stream.
 
 It's designed to solve a specific problem: running an HTTP service and a binary/raw TCP service on the same external port without the overhead of a full Layer 7 proxy (like Nginx).
@@ -26,8 +29,21 @@ Once the destination is identified, T-Port bridges the two TCP sockets using tok
 
 ## How to use
 
+### Standard execution
+
+Check the [Releases](https://github.com/SirCesarium/t-port/releases) page for optimized, standalone binaries.
+
 ```
 ./tp --listen 0.0.0.0:80 --web 127.0.0.1:3000 --bin 127.0.0.1:9000
+```
+
+### Docker (Official Image)
+
+You don't need to build it yourself. Pull it from GitHub Container Registry:
+
+```
+docker run -p 25565:25565 ghcr.io/sircesarium/t-port:latest \
+  --listen 0.0.0.0:25565 --web 1.2.3.4:80 --bin 1.2.3.4:25567
 ```
 
 ## How to compile
@@ -36,9 +52,8 @@ Once the destination is identified, T-Port bridges the two TCP sockets using tok
 
 - Run `cargo build --release`
 
-### Docker
+### Docker (local build)
 
-- Build the image: ```docker build -t t-port .```
+- Build the image: `docker build -t t-port .`
 
-- Run it: ```docker run -p 25565:25565 t-port --listen 0.0.0.0:25565 --web 172.17.0.1:3000 --bin 172.17.0.1:25567```
-
+- Run it: `docker run -p 25565:25565 t-port --listen 0.0.0.0:25565 --web 172.17.0.1:3000 --bin 172.17.0.1:25567`
