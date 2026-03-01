@@ -279,7 +279,6 @@ dependencies = [
 name = "t-port"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "clap",
  "tokio",
 ]
