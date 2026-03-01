@@ -7,3 +7,7 @@ edition = "2024"
 bytes = "1.11.1"
 clap = { version = "4.5.60", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["full"] }
+
+[[bin]]
+name = "tp"
+path = "src/main.rs"
