@@ -1,5 +1,6 @@
 use clap::Parser;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::time::{Duration, timeout};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "L4 Protocol Multiplexer")]
@@ -30,7 +31,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("L4 Protocol Multiplexer listening on {}", args.listen);
     println!("route HTTP traffic    => {}", web_addr);
     println!("route BINARY traffic  => {}", mc_addr);
-    if debug { println!("debug mode: ENABLED"); }
+    if debug {
+        println!("debug mode: ENABLED");
+    }
     println!("---------------------------------------");
 
     loop {
@@ -40,7 +43,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         tokio::spawn(async move {
             if let Err(e) = handle_connection(socket, w_target, m_target, debug).await {
-                if debug { eprintln!("error at {}: {}", addr, e); }
+                if debug {
+                    eprintln!("error at {}: {}", addr, e);
+                }
             }
         });
     }
@@ -53,7 +58,15 @@ async fn handle_connection(
     debug: bool,
 ) -> tokio::io::Result<()> {
     let mut buf = [0u8; 8];
-    let n = socket.peek(&mut buf[..]).await?;
+    let n = match timeout(Duration::from_secs(5), socket.peek(&mut buf[..])).await {
+        Ok(result) => result?,
+        Err(_) => {
+            if debug {
+                eprintln!("Connection timed out waiting for handshake");
+            }
+            return Ok(());
+        }
+    };
 
     if n < 3 {
         return handle_binary(socket, mc_t, debug).await;
@@ -76,18 +89,32 @@ async fn handle_connection(
     }
 }
 
-async fn handle_web(mut socket: TcpStream, target_addr: String, debug: bool) -> tokio::io::Result<()> {
-    if debug { println!("HTTP request -> redirecting to {}", target_addr); }
+async fn handle_web(
+    mut socket: TcpStream,
+    target_addr: String,
+    debug: bool,
+) -> tokio::io::Result<()> {
+    if debug {
+        println!("HTTP request -> redirecting to {}", target_addr);
+    }
 
     let mut target = TcpStream::connect(target_addr).await?;
+    socket.set_nodelay(true)?;
     tokio::io::copy_bidirectional(&mut socket, &mut target).await?;
     Ok(())
 }
 
-async fn handle_binary(mut socket: TcpStream, target_addr: String, debug: bool) -> tokio::io::Result<()> {
-    if debug { println!("BINARY request -> redirecting to {}", target_addr); }
+async fn handle_binary(
+    mut socket: TcpStream,
+    target_addr: String,
+    debug: bool,
+) -> tokio::io::Result<()> {
+    if debug {
+        println!("BINARY request -> redirecting to {}", target_addr);
+    }
 
     let mut target = TcpStream::connect(target_addr).await?;
+    socket.set_nodelay(true)?;
     tokio::io::copy_bidirectional(&mut socket, &mut target).await?;
     Ok(())
 }
