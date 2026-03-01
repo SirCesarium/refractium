@@ -34,7 +34,7 @@ Once the destination is identified, T-Port bridges the two TCP sockets using tok
 Check the [Releases](https://github.com/SirCesarium/t-port/releases) page for optimized, standalone binaries.
 
 ```
-./tp --listen 0.0.0.0:80 --web 127.0.0.1:3000 --bin 127.0.0.1:9000
+./tp --listen 0.0.0.0:80 --web 127.0.0.1:8080 --bin 127.0.0.1:9000
 ```
 
 ### Docker (Official Image)
@@ -42,8 +42,8 @@ Check the [Releases](https://github.com/SirCesarium/t-port/releases) page for op
 You don't need to build it yourself. Pull it from GitHub Container Registry:
 
 ```
-docker run -p 25565:25565 ghcr.io/sircesarium/t-port:latest \
-  --listen 0.0.0.0:25565 --web 1.2.3.4:80 --bin 1.2.3.4:25567
+docker run -p 80:80 ghcr.io/sircesarium/t-port:latest \
+  --listen 0.0.0.0:80 --web 1.2.3.4:8080 --bin 1.2.3.4:9000
 ```
 
 ## How to compile
@@ -56,4 +56,28 @@ docker run -p 25565:25565 ghcr.io/sircesarium/t-port:latest \
 
 - Build the image: `docker build -t t-port .`
 
-- Run it: `docker run -p 25565:25565 t-port --listen 0.0.0.0:25565 --web 172.17.0.1:3000 --bin 172.17.0.1:25567`
+- Run it: `docker run -p 80:80 t-port --listen 0.0.0.0:80 --web 1.2.3.4:8080 --bin 1.2.3.4:9000`
+
+## As a Library
+
+Add T-Port to your `Cargo.toml` without the CLI dependencies:
+
+```bash
+cargo add t-port --no-default-features
+```
+
+Basic usage
+
+```rust
+use t_port::{identify, tunnel, Protocol};
+
+async fn handle(socket: TcpStream) -> io::Result<()> {
+    let mut buf = [0u8; 8];
+    let n = socket.peek(&mut buf).await?;
+
+    match identify(&buf[..n]) {
+        Protocol::Http => tunnel(socket, "127.0.0.1:8080".into()).await,
+        Protocol::Binary => tunnel(socket, "127.0.0.1:9000".into()).await,
+    }
+}
+```

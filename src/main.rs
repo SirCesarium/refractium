@@ -6,13 +6,13 @@ use tokio::time::{Duration, timeout};
 #[derive(Parser, Debug)]
 #[command(author, version, about = "L4 Protocol Multiplexer")]
 struct Args {
-    #[arg(short, long, default_value = "0.0.0.0:25565")]
+    #[arg(short, long, default_value = "0.0.0.0:80")]
     listen: String,
 
-    #[arg(short, long, default_value = "127.0.0.1:3000")]
+    #[arg(short, long, default_value = "127.0.0.1:8080")]
     web: String,
 
-    #[arg(short, long, default_value = "127.0.0.1:25567")]
+    #[arg(short, long, default_value = "127.0.0.1:9000")]
     bin: String,
 
     #[arg(short, long, default_value_t = false)]
@@ -60,24 +60,19 @@ async fn handle_connection(
     let mut buf = [0u8; 8];
     let n = match timeout(Duration::from_secs(5), socket.peek(&mut buf[..])).await {
         Ok(result) => result?,
-        Err(_) => {
-            if debug {
-                eprintln!("Connection timed out waiting for handshake");
-            }
-            return Ok(());
-        }
+        Err(_) => return Ok(()),
     };
 
-    match identify(&buf[..n], n) {
+    match identify(&buf[..n]) {
         Protocol::Http => {
             if debug {
-                println!("HTTP request -> redirecting to {}", web_t);
+                println!("HTTP request -> {}", web_t);
             }
             tunnel(socket, web_t).await
         }
         Protocol::Binary => {
             if debug {
-                println!("BINARY request -> redirecting to {}", mc_t);
+                println!("BINARY request -> {}", mc_t);
             }
             tunnel(socket, mc_t).await
         }
