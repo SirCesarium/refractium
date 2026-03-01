@@ -42,10 +42,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let m_target = mc_addr.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = handle_connection(socket, w_target, m_target, debug).await {
-                if debug {
-                    eprintln!("error at {}: {}", addr, e);
-                }
+            match handle_connection(socket, w_target, m_target, debug).await {
+                Err(e) if debug => eprintln!("error at {}: {}", addr, e),
+                _ => (),
             }
         });
     }
