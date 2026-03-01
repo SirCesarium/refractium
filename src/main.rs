@@ -11,7 +11,7 @@ struct Args {
     web: String,
 
     #[arg(short, long, default_value = "127.0.0.1:25567")]
-    mc: String,
+    bin: String,
 
     #[arg(short, long, default_value_t = false)]
     debug: bool,
@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(&args.listen).await?;
 
     let web_addr = args.web;
-    let mc_addr = args.mc;
+    let mc_addr = args.bin;
     let debug = args.debug;
 
     println!("L4 Protocol Multiplexer listening on {}", args.listen);
