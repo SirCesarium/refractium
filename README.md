@@ -21,7 +21,7 @@ Once the destination is identified, T-Port bridges the two TCP sockets using tok
 
 - Single Port: Bypass firewall restrictions or save public IP resources.
 
-- Zero-Copy (ish): It doesn't store or modify your data; it just pipes it.
+- Near Zero-Copy (ish): It doesn't store or modify your data; it just pipes it.
 
 - Async-First: Built on top of Tokio to handle thousands of concurrent connections.
 
