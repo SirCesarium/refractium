@@ -16,19 +16,19 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: tp
-            release_name: tp-linux-amd64
+            artifact_name: prisma
+            release_name: prisma-linux-amd64
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: tp
-            release_name: tp-linux-arm64
+            artifact_name: prisma
+            release_name: prisma-linux-arm64
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            artifact_name: tp.exe
-            release_name: tp-windows-amd64.exe
+            artifact_name: prisma.exe
+            release_name: prisma-windows-amd64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -69,24 +69,24 @@ jobs:
       contents: write
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/sircesarium/t-port:latest
-            ghcr.io/sircesarium/t-port:${{ github.ref_name }}
+            ghcr.io/sircesarium/prisma-rs:latest
+            ghcr.io/sircesarium/prisma-rs:${{ github.ref_name }}
 
       - name: Cargo Publish
         run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
