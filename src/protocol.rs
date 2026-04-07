@@ -3,6 +3,7 @@ pub enum Protocol {
     Binary,
 }
 
+#[must_use]
 pub fn identify(buf: &[u8]) -> Protocol {
     let len = buf.len();
     if len < 3 {

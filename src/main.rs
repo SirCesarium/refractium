@@ -1,5 +1,15 @@
+#![deny(clippy::all)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(clippy::missing_errors_doc)]
+
+use anyhow::Context;
 use clap::Parser;
-use prisma_rs::{Protocol, identify, tunnel};
+use prisma_rs::core::PrismaCore;
+use prisma_rs::define_protocol;
+use prisma_rs::protocols::Transport;
+use prisma_rs::proxy::tunnel;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{Duration, timeout};
 
@@ -19,62 +29,93 @@ struct Args {
     debug: bool,
 }
 
+define_protocol!(
+    HttpProto,
+    "HTTP",
+    Transport::Tcp,
+    "web_t_placeholder",
+    b"GET "
+);
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let listener = TcpListener::bind(&args.listen).await?;
+    let listener = TcpListener::bind(&args.listen)
+        .await
+        .context("Failed to bind TCP listener")?;
 
-    let web_addr = args.web;
-    let mc_addr = args.bin;
     let debug = args.debug;
 
     println!("L4 Protocol Multiplexer listening on {}", args.listen);
-    println!("route HTTP traffic    => {}", web_addr);
-    println!("route BINARY traffic  => {}", mc_addr);
+    println!("route HTTP traffic    => {}", args.web);
+    println!("route BINARY traffic  => {}", args.bin);
+
     if debug {
         println!("debug mode: ENABLED");
     }
     println!("---------------------------------------");
 
+    let mut core = PrismaCore::new(args.bin.clone());
+
+    core.register(HttpProtoInst {
+        target: args.web.clone(),
+    });
+
+    let core = std::sync::Arc::new(core);
+
     loop {
         let (socket, addr) = listener.accept().await?;
-        let w_target = web_addr.clone();
-        let m_target = mc_addr.clone();
+        let core_ptr = core.clone();
 
         tokio::spawn(async move {
-            match handle_connection(socket, w_target, m_target, debug).await {
-                Err(e) if debug => eprintln!("error at {}: {}", addr, e),
-                _ => (),
+            if let Err(e) = handle_connection(socket, core_ptr, debug).await
+                && debug
+            {
+                eprintln!("error at {addr}: {e}");
             }
         });
     }
 }
 
+struct HttpProtoInst {
+    target: String,
+}
+
+impl prisma_rs::protocols::Protocol for HttpProtoInst {
+    fn name(&self) -> &'static str {
+        "HTTP"
+    }
+    fn transport(&self) -> Transport {
+        Transport::Tcp
+    }
+    fn target_addr(&self) -> &str {
+        &self.target
+    }
+    fn identify(&self, buf: &[u8]) -> bool {
+        buf.starts_with(b"GET ") || buf.starts_with(b"POST ") || buf.starts_with(b"HTTP/")
+    }
+}
+
 async fn handle_connection(
     socket: TcpStream,
-    web_t: String,
-    mc_t: String,
+    core: std::sync::Arc<PrismaCore>,
     debug: bool,
-) -> tokio::io::Result<()> {
-    let mut buf = [0u8; 8];
-    let n = match timeout(Duration::from_secs(5), socket.peek(&mut buf[..])).await {
-        Ok(result) => result?,
+) -> anyhow::Result<()> {
+    let mut buf = [0u8; 16];
+
+    let n = match timeout(Duration::from_secs(5), socket.peek(&mut buf)).await {
+        Ok(result) => result.context("Peek failed")?,
         Err(_) => return Ok(()),
     };
 
-    match identify(&buf[..n]) {
-        Protocol::Http => {
-            if debug {
-                println!("HTTP request -> {}", web_t);
-            }
-            tunnel(socket, web_t).await
-        }
-        Protocol::Binary => {
-            if debug {
-                println!("BINARY request -> {}", mc_t);
-            }
-            tunnel(socket, mc_t).await
-        }
+    let target = core.resolve(&buf[..n]).to_string();
+
+    if debug {
+        println!("Routing connection to -> {target}");
     }
+
+    tunnel(socket, target).await.context("Tunneling failed")?;
+
+    Ok(())
 }
