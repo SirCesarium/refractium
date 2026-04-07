@@ -1,5 +1,5 @@
 use clap::Parser;
-use t_port::{Protocol, identify, tunnel};
+use prisma_rs::{Protocol, identify, tunnel};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{Duration, timeout};
 
