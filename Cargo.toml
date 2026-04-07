@@ -1,13 +1,13 @@
 [package]
-name = "t-port"
+name = "prisma-rs"
 version = "1.1.1"
 edition = "2024"
 authors = ["SirCesarium"]
 description = "A lightweight L4 protocol multiplexer with zero-copy routing."
 license = "MIT"
-repository = "https://github.com/sircesarium/t-port"
-homepage = "https://github.com/sircesarium/t-port"
-documentation = "https://docs.rs/t-port"
+repository = "https://github.com/sircesarium/prisma-rs"
+homepage = "https://github.com/sircesarium/prisma-rs"
+documentation = "https://docs.rs/prisma-rs"
 readme = "README.md"
 
 [dependencies]
@@ -19,7 +19,7 @@ default = ["cli"]
 cli = ["dep:clap"]
 
 [[bin]]
-name = "tp"
+name = "prisma"
 path = "src/main.rs"
 required-features = ["cli"]
 
