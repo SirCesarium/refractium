@@ -3,12 +3,12 @@ use crate::core::proxy::proxy_tcp;
 use crate::core::router::Router;
 use crate::errors::{PrismaError, Result};
 use crate::prisma_debug;
-use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{io, time};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::time::timeout;
+use tokio::time as tokio_time;
 use tokio_util::sync::CancellationToken;
 
 /// A high-performance TCP server that performs protocol identification and routing.
@@ -89,18 +89,26 @@ impl TcpServer {
         peek_timeout: u64,
     ) -> Result<()> {
         let mut buf = vec![0u8; peek_size];
-        let n = timeout(Duration::from_millis(peek_timeout), socket.peek(&mut buf))
-            .await
-            .map_err(|_| PrismaError::Generic("Protocol identification timeout".to_string()))?
-            .map_err(PrismaError::Io)?;
+        let start = time::Instant::now();
+        let timeout_duration = Duration::from_millis(peek_timeout);
 
-        let target_addr = router.route(&buf[..n]).await;
+        loop {
+            let n = socket.peek(&mut buf).await.map_err(PrismaError::Io)?;
 
-        if let Some(target_addr) = target_addr {
-            let backend = TcpStream::connect(&target_addr).await?;
-            proxy_tcp(socket, backend).await?;
+            if n > 0
+                && let Some(target_addr) = router.route(&buf[..n]).await
+            {
+                let backend = TcpStream::connect(&target_addr).await?;
+                return proxy_tcp(socket, backend).await.map_err(PrismaError::Io);
+            }
+
+            if start.elapsed() >= timeout_duration {
+                return Err(PrismaError::Generic(
+                    "Protocol identification timeout".to_string(),
+                ));
+            }
+
+            tokio_time::sleep(Duration::from_millis(10)).await;
         }
-
-        Ok(())
     }
 }
