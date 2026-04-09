@@ -3,7 +3,7 @@ name = "prisma-rs"
 version = "1.1.1"
 edition = "2024"
 authors = ["SirCesarium"]
-description = "A lightweight L4 protocol multiplexer with zero-copy routing."
+description = "A high-performance L4 protocol multiplexer with zero-copy routing."
 license = "MIT"
 repository = "https://github.com/sircesarium/prisma-rs"
 homepage = "https://github.com/sircesarium/prisma-rs"
@@ -11,25 +11,47 @@ documentation = "https://docs.rs/prisma-rs"
 readme = "README.md"
 
 [dependencies]
-anyhow = { version = "1", optional = true }
+# Core dependencies
 bytes = "1"
-clap = { version = "4.5", features = ["derive"], optional = true }
-futures-util = "0.3"
 memchr = "2.8"
-socket2 = { version = "0.6", features = ["all"] }
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
-tokio-util = { version = "0.7", features = ["net", "codec"] }
-tracing = "0.1"
+tokio-util = { version = "0.7", features = ["rt"] }
+
+# Optional dependencies (CLI & Extras)
+anyhow = { version = "1", optional = true }
+clap = { version = "4.5", features = ["derive"], optional = true }
+colored = { version = "3", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+toml = { version = "1.1", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3.23", optional = true }
 
 [features]
-default = ["cli"]
-cli = ["dep:clap"]
+default = ["cli", "logging"]
+cli = [
+    "dep:anyhow",
+    "dep:clap",
+    "dep:colored",
+    "dep:serde",
+    "dep:toml",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+]
+logging = ["dep:tracing", "dep:tracing-subscriber"]
 
 [[bin]]
 name = "prisma"
 path = "src/main.rs"
-required-features = ["cli"]
+required-features = ["cli", "logging"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio"] }
+rand = "0.10.0"
+
+[[bench]]
+name = "protocol_bench"
+harness = false
 
 [profile.release]
 opt-level = 3
