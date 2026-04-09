@@ -6,16 +6,19 @@ WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
 
-RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src/
+RUN mkdir src && echo "fn main() {}" > src/main.rs && \
+    mkdir benches && touch benches/protocol_bench.rs && \
+    cargo build --release --features cli,logging --bin prisma && \
+    rm -rf src/ benches/
 
 COPY . .
 
-RUN cargo build --release
+RUN cargo build --release --features cli,logging
 
 FROM gcr.io/distroless/cc-debian13:nonroot
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/prisma-rs ./prisma
+COPY --from=builder /app/target/release/prisma ./prisma
 
 ENTRYPOINT ["./prisma"]
