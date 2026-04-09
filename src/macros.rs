@@ -1,20 +1,60 @@
+// @swt-disable max-repetition
+
+/// Macro to define a new protocol by implementing the `PrismaProtocol` trait.
+///
+/// This macro simplifies the creation of simple protocols that identify themselves
+/// by checking a data slice against a condition.
 #[macro_export]
 macro_rules! define_protocol {
-    ($struct_name:ident, $display_name:expr, $transport:expr, $target:expr, $magic:expr) => {
-        pub struct $struct_name;
-        impl $crate::protocols::Protocol for $struct_name {
+    (
+        $(#[$meta:meta])*
+        name: $name:ident,
+        identify: |$data:ident| $body:expr
+    ) => {
+        $(#[$meta])*
+        pub struct $name;
+
+        impl $crate::protocols::PrismaProtocol for $name {
+            #[inline]
+            fn identify(&self, $data: &[u8]) -> Option<$crate::protocols::ProtocolMatch> {
+                if $body {
+                    return Some($crate::protocols::ProtocolMatch {
+                        name: stringify!($name).to_lowercase(),
+                        metadata: None,
+                    });
+                }
+                None
+            }
+
             fn name(&self) -> &'static str {
-                $display_name
+                stringify!($name)
             }
-            fn transport(&self) -> $crate::protocols::Transport {
-                $transport
-            }
-            fn target_addr(&self) -> &str {
-                $target
-            }
-            fn identify(&self, buf: &[u8]) -> bool {
-                buf.starts_with($magic)
-            }
+        }
+    };
+}
+
+/// Internal debug logging macro.
+///
+/// Only active when the `logging` feature is enabled.
+#[macro_export]
+macro_rules! prisma_debug {
+    ($($arg:tt)*) => {
+        {
+            #[cfg(feature = "logging")]
+            tracing::info!($($arg)*);
+        }
+    };
+}
+
+/// Internal error logging macro.
+///
+/// Only active when the `logging` feature is enabled.
+#[macro_export]
+macro_rules! prisma_error {
+    ($($arg:tt)*) => {
+        {
+            #[cfg(feature = "logging")]
+            tracing::error!($($arg)*);
         }
     };
 }
