@@ -1,18 +1,33 @@
-use std::io;
-use std::time::Duration;
+use std::{io, result};
 use thiserror::Error;
 
+/// Main error type for the Prisma-RS library.
 #[derive(Error, Debug)]
 pub enum PrismaError {
+    /// Error returned when binding to a socket fails.
+    #[error("Failed to bind to {0}: {1}")]
+    BindError(String, io::Error),
+
+    /// Error returned when configuration loading or parsing fails.
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
+
+    /// Wrapper for standard IO errors.
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
-    #[error("Identification timeout after {0:?}")]
-    Timeout(Duration),
+    /// Error returned when an address cannot be resolved.
+    #[error("Address resolution failed: {0}")]
+    AddrResolution(String),
 
-    #[error("Protocol identification failed")]
-    IdentificationFailed,
+    /// Generic catch-all error with a custom message.
+    #[error("Generic error: {0}")]
+    Generic(String),
 
-    #[error("Core engine failure: {0}")]
-    CoreError(String),
+    /// Error returned when an unknown or unexpected internal error occurs.
+    #[error("Unknown error occurred")]
+    Unknown,
 }
+
+/// Convenience alias for `std::result::Result<T, PrismaError>`.
+pub type Result<T> = result::Result<T, PrismaError>;
