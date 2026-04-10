@@ -69,7 +69,7 @@ forward_to = "127.0.0.1:3000"
     );
 
     println!("\n{}", "Command line overrides:".bold());
-    println!("  prisma --forward \"name=addr\" --peek-buffer 2048");
+    println!("  prisma --forward \"name=addr\"");
 }
 
 pub fn print_error(msg: &str) {

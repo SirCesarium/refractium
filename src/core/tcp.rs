@@ -93,6 +93,8 @@ impl TcpServer {
         let timeout_duration = Duration::from_millis(peek_timeout);
 
         loop {
+            socket.readable().await.map_err(PrismaError::Io)?;
+
             let n = socket.peek(&mut buf).await.map_err(PrismaError::Io)?;
 
             if n > 0
@@ -107,8 +109,6 @@ impl TcpServer {
                     "Protocol identification timeout".to_string(),
                 ));
             }
-
-            tokio_time::sleep(Duration::from_millis(10)).await;
         }
     }
 }
