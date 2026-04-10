@@ -73,7 +73,14 @@ fn setup_engine(
     filter: &Transport,
 ) -> (Arc<ProtocolRegistry>, HashMap<String, Vec<String>>) {
     let mut registry = ProtocolRegistry::new();
-    let built_ins = ["http", "https", "ssh", "dns", "ftp"];
+
+    let built_in_map = [
+        ("http", Transport::Tcp),
+        ("https", Transport::Tcp),
+        ("ssh", Transport::Tcp),
+        ("ftp", Transport::Tcp),
+        ("dns", Transport::Udp),
+    ];
 
     if matches!(filter, Transport::Tcp | Transport::Both) {
         registry.register(Box::new(Http));
@@ -81,28 +88,35 @@ fn setup_engine(
         registry.register(Box::new(Ssh));
         registry.register(Box::new(Ftp));
     }
-
     if matches!(filter, Transport::Udp | Transport::Both) {
         registry.register(Box::new(Dns));
     }
 
     for route in &config.protocols {
-        if route.transport == *filter || route.transport == Transport::Both {
-            if let Some(ref patterns) = route.patterns {
-                registry.register(Box::new(DynamicProtocol {
-                    name: route.name.clone(),
-                    patterns: patterns.clone(),
-                }));
-            } else if !built_ins.contains(&route.name.as_str()) {
-                #[cfg(feature = "logging")]
-                tracing::warn!("Protocol '{}' ignored: no patterns", route.name);
-            }
+        if let Some(&(name, ref required_transport)) =
+            built_in_map.iter().find(|(n, _)| *n == route.name)
+            && route.transport != Transport::Both
+            && route.transport != *required_transport
+        {
+            display::print_error(&format!(
+                "Protocol mismatch: '{}' requires {:?}, but you configured it as {:?}",
+                name, required_transport, route.transport
+            ));
+            process::exit(1);
+        }
+
+        if (route.transport == *filter || route.transport == Transport::Both)
+            && let Some(ref patterns) = route.patterns
+        {
+            registry.register(Box::new(DynamicProtocol {
+                name: route.name.clone(),
+                patterns: patterns.clone(),
+            }));
         }
     }
 
     (Arc::new(registry), get_routes(config, filter))
 }
-
 async fn resolve_addr_from_str(addr_str: &str) -> anyhow::Result<SocketAddr> {
     match lookup_host(addr_str).await {
         Ok(mut addrs) => addrs
