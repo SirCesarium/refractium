@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{io, time};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::time as tokio_time;
 use tokio_util::sync::CancellationToken;
 
 /// A high-performance TCP server that performs protocol identification and routing.
