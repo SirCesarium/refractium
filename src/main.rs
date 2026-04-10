@@ -28,17 +28,19 @@ async fn main() -> anyhow::Result<()> {
 
     display::print_banner();
 
-    let config = match Config::load(&cli) {
+    let config = match Config::load_config(&cli) {
         Ok(c) => c,
         Err(e) => {
-            if !cli.no_config && cli.config == "prisma.toml" {
-                display::print_config_guide();
-            } else {
-                display::print_error(&format!("Failed to load configuration: {e}"));
-            }
+            display::print_error(&format!("Failed to load configuration: {e}"));
             process::exit(1);
         }
     };
+
+    if config.protocols.is_empty() && config.fallback_tcp.is_none() && config.fallback_udp.is_none()
+    {
+        display::print_config_guide();
+        process::exit(1);
+    }
 
     let cancel_token = CancellationToken::new();
     let token_clone = cancel_token.clone();
@@ -81,7 +83,7 @@ async fn main() -> anyhow::Result<()> {
             if let Ok(mut stream) = signal::unix::signal(signal::unix::SignalKind::hangup()) {
                 while stream.recv().await.is_some() {
                     display::print_success("Reloading configuration...");
-                    if let Ok(new_config) = Config::load(&cli_reload) {
+                    if let Ok(new_config) = Config::load_config(&cli_reload) {
                         let tcp = run::get_routes(&new_config, &Transport::Tcp);
                         let udp = run::get_routes(&new_config, &Transport::Udp);
                         prisma_reload.reload_routes(tcp, udp).await;

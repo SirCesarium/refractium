@@ -1,7 +1,8 @@
 use crate::commands::Cli;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::io::ErrorKind;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
@@ -15,9 +16,15 @@ pub struct Config {
 pub struct ServerConfig {
     pub bind: String,
     pub port: u16,
-    #[serde(default = "default_peek_buffer_size")]
+    #[serde(
+        default = "default_peek_buffer_size",
+        skip_serializing_if = "is_default_peek_buffer_size"
+    )]
     pub peek_buffer_size: usize,
-    #[serde(default = "default_peek_timeout_ms")]
+    #[serde(
+        default = "default_peek_timeout_ms",
+        skip_serializing_if = "is_default_peek_timeout_ms"
+    )]
     pub peek_timeout_ms: u64,
 }
 
@@ -27,6 +34,16 @@ const fn default_peek_buffer_size() -> usize {
 
 const fn default_peek_timeout_ms() -> u64 {
     3000
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_default_peek_buffer_size(size: &usize) -> bool {
+    *size == default_peek_buffer_size()
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_default_peek_timeout_ms(ms: &u64) -> bool {
+    *ms == default_peek_timeout_ms()
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
@@ -39,6 +56,7 @@ pub enum Transport {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ProtocolRoute {
+    #[serde(deserialize_with = "lowercase_deserialize")]
     pub name: String,
     pub patterns: Option<Vec<String>>,
     pub forward_to: ForwardTarget,
@@ -84,13 +102,16 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn load(cli: &Cli) -> anyhow::Result<Self> {
-        let mut config = if cli.no_config {
-            Self::default()
-        } else {
-            let content = fs::read_to_string(&cli.config)?;
-            toml::from_str(&content)?
-        };
+    fn try_load_from_file(file_path: &str) -> anyhow::Result<Option<Self>> {
+        match fs::read_to_string(file_path) {
+            Ok(content) => Ok(Some(toml::from_str(&content)?)),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn load_config(cli: &Cli) -> anyhow::Result<Self> {
+        let mut config = Self::try_load_from_file(&cli.config)?.unwrap_or_default();
 
         config.server.bind.clone_from(&cli.bind);
         config.server.port = cli.port;
@@ -107,7 +128,7 @@ impl Config {
         for f in &cli.forward {
             if let Some((name, addr)) = f.split_once('=') {
                 cli_forwards
-                    .entry(name.to_string())
+                    .entry(name.to_lowercase())
                     .or_default()
                     .push(addr.to_string());
             }
@@ -136,6 +157,14 @@ impl Config {
     }
 }
 
+fn lowercase_deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(s.to_lowercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,5 +174,22 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.server.port, 8080);
         assert_eq!(config.server.peek_buffer_size, 1024);
+    }
+
+    #[test]
+    fn test_default_config_serialization_skips_default_peek_fields() {
+        let config = Config::default();
+        let toml_string = match toml::to_string_pretty(&config) {
+            Ok(s) => s,
+            Err(e) => panic!("Serialization failed in test: {e}"),
+        };
+        assert!(
+            !toml_string.contains("peek_buffer_size"),
+            "peek_buffer_size should not be serialized if default"
+        );
+        assert!(
+            !toml_string.contains("peek_timeout_ms"),
+            "peek_timeout_ms should not be serialized if default"
+        );
     }
 }

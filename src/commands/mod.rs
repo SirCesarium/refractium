@@ -19,12 +19,9 @@ pub struct Cli {
     pub config: String,
 
     #[arg(long)]
-    pub no_config: bool,
-
-    #[arg(long)]
     pub debug: bool,
 
-    #[arg(short = 'F', long)]
+    #[arg(short = 'f', long)]
     pub forward: Vec<String>,
 
     #[arg(long)]

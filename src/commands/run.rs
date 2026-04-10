@@ -76,7 +76,7 @@ fn setup_engine(
     filter: &Transport,
 ) -> (Arc<ProtocolRegistry>, HashMap<String, Vec<String>>) {
     let mut registry = ProtocolRegistry::new();
-    let built_ins = ["Http", "Https", "Ssh", "Dns", "Ftp"];
+    let built_ins = ["http", "https", "ssh", "dns", "ftp"];
 
     if matches!(filter, Transport::Tcp | Transport::Both) {
         registry.register(Box::new(Http));
