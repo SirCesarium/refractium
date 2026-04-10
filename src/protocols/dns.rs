@@ -1,5 +1,6 @@
 //! DNS protocol identification logic.
 
+use crate::core::types::Transport;
 use crate::protocols::{PrismaProtocol, ProtocolMatch};
 
 /// DNS protocol identification implementation.
@@ -17,7 +18,7 @@ impl PrismaProtocol for Dns {
 
         if is_query && op_code == 0 {
             return Some(ProtocolMatch {
-                name: "Dns".to_string(),
+                name: "dns".to_string(),
                 metadata: None,
             });
         }
@@ -25,6 +26,10 @@ impl PrismaProtocol for Dns {
     }
 
     fn name(&self) -> &'static str {
-        "Dns"
+        "dns"
+    }
+
+    fn transport(&self) -> Transport {
+        Transport::Udp
     }
 }

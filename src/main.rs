@@ -8,8 +8,9 @@ mod config;
 mod display;
 
 use crate::commands::{Cli, Commands, init, run};
-use crate::config::{Config, Transport};
+use crate::config::TomlConfig;
 use clap::Parser;
+use prisma_rs::types::Transport;
 use std::io;
 use std::process;
 use std::sync::Arc;
@@ -28,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     display::print_banner();
 
-    let config = match Config::load_config(&cli) {
+    let config = match TomlConfig::load_config(&cli) {
         Ok(c) => c,
         Err(e) => {
             display::print_error(&format!("Failed to load configuration: {e}"));
@@ -83,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
             if let Ok(mut stream) = signal::unix::signal(signal::unix::SignalKind::hangup()) {
                 while stream.recv().await.is_some() {
                     display::print_success("Reloading configuration...");
-                    if let Ok(new_config) = Config::load_config(&cli_reload) {
+                    if let Ok(new_config) = TomlConfig::load_config(&cli_reload) {
                         let tcp = run::get_routes(&new_config, &Transport::Tcp);
                         let udp = run::get_routes(&new_config, &Transport::Udp);
                         prisma_reload.reload_routes(tcp, udp).await;

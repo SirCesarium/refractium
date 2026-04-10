@@ -1,5 +1,6 @@
 //! HTTPS protocol identification logic.
 
+use crate::core::types::Transport;
 use crate::protocols::{PrismaProtocol, ProtocolMatch};
 use std::cmp;
 
@@ -48,7 +49,7 @@ impl PrismaProtocol for Https {
                 && let Some(sni) = Self::parse_sni(&data[pos..pos + ext_len])
             {
                 return Some(ProtocolMatch {
-                    name: "Https".to_string(),
+                    name: "https".to_string(),
                     metadata: Some(sni),
                 });
             }
@@ -56,13 +57,17 @@ impl PrismaProtocol for Https {
         }
 
         Some(ProtocolMatch {
-            name: "Https".to_string(),
+            name: "https".to_string(),
             metadata: None,
         })
     }
 
     fn name(&self) -> &'static str {
-        "Https"
+        "https"
+    }
+
+    fn transport(&self) -> Transport {
+        Transport::Tcp
     }
 }
 

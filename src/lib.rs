@@ -54,5 +54,6 @@ pub mod macros;
 /// Protocol implementations and identification logic.
 pub mod protocols;
 
+pub use crate::core::types;
 pub use crate::core::{Prisma, PrismaBuilder};
 pub use crate::errors::{PrismaError, Result};

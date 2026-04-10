@@ -9,6 +9,7 @@ macro_rules! define_protocol {
     (
         $(#[$meta:meta])*
         name: $name:ident,
+        transport: $transport:expr,
         identify: |$data:ident| $body:expr
     ) => {
         $(#[$meta])*
@@ -28,6 +29,10 @@ macro_rules! define_protocol {
 
             fn name(&self) -> &'static str {
                 stringify!($name)
+            }
+
+            fn transport(&self) -> $crate::core::types::Transport {
+                $transport
             }
         }
     };

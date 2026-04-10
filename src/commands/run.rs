@@ -1,5 +1,4 @@
 use crate::commands::Commands;
-use crate::config::{Config, Transport};
 use crate::display;
 use prisma_rs::core::Prisma;
 use prisma_rs::protocols::dns::Dns;
@@ -8,6 +7,7 @@ use prisma_rs::protocols::http::Http;
 use prisma_rs::protocols::https::Https;
 use prisma_rs::protocols::ssh::Ssh;
 use prisma_rs::protocols::{DynamicProtocol, ProtocolRegistry};
+use prisma_rs::types::{ProxyConfig, Transport};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::process;
@@ -15,17 +15,14 @@ use std::sync::Arc;
 use tokio::net::lookup_host;
 use tokio_util::sync::CancellationToken;
 
-pub fn setup_prisma(config: &Config, cancel_token: CancellationToken) -> Prisma {
+pub fn setup_prisma(config: &ProxyConfig, cancel_token: CancellationToken) -> Prisma {
     let (registry_tcp, routes_tcp) = setup_engine(config, &Transport::Tcp);
     let (registry_udp, routes_udp) = setup_engine(config, &Transport::Udp);
 
     Prisma::builder()
         .registries(registry_tcp, registry_udp)
         .routes(routes_tcp, routes_udp)
-        .peek_config(
-            config.server.peek_buffer_size,
-            config.server.peek_timeout_ms,
-        )
+        .peek_config(config.peek_buffer_size, config.peek_timeout_ms)
         .cancel_token(cancel_token)
         .build()
 }
@@ -53,7 +50,7 @@ pub async fn execute_prisma(
     }
 }
 
-pub fn get_routes(config: &Config, filter: &Transport) -> HashMap<String, Vec<String>> {
+pub fn get_routes(config: &ProxyConfig, filter: &Transport) -> HashMap<String, Vec<String>> {
     let mut routes = HashMap::new();
     for route in &config.protocols {
         if route.transport == *filter || route.transport == Transport::Both {
@@ -72,7 +69,7 @@ pub fn get_routes(config: &Config, filter: &Transport) -> HashMap<String, Vec<St
 }
 
 fn setup_engine(
-    config: &Config,
+    config: &ProxyConfig,
     filter: &Transport,
 ) -> (Arc<ProtocolRegistry>, HashMap<String, Vec<String>>) {
     let mut registry = ProtocolRegistry::new();

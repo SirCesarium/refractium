@@ -11,6 +11,9 @@ pub mod tcp;
 /// UDP server implementation.
 pub mod udp;
 
+/// Types used across the core module.
+pub mod types;
+
 use crate::errors::Result;
 use crate::protocols::ProtocolRegistry;
 use balancer::LoadBalancer;

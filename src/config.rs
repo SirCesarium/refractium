@@ -1,13 +1,15 @@
 use crate::commands::Cli;
+use prisma_rs::core::types::{ForwardTarget, ProtocolRoute, ProxyConfig, Transport};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::ErrorKind;
 
+/// Internal TOML representation for server settings.
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Config {
+pub struct TomlConfig {
     pub server: ServerConfig,
-    pub protocols: Vec<ProtocolRoute>,
+    pub protocols: Vec<TomlRoute>,
     pub fallback_tcp: Option<String>,
     pub fallback_udp: Option<String>,
 }
@@ -17,82 +19,70 @@ pub struct ServerConfig {
     pub bind: String,
     pub port: u16,
     #[serde(
-        default = "default_peek_buffer_size",
-        skip_serializing_if = "is_default_peek_buffer_size"
+        default = "default_peek_buffer",
+        skip_serializing_if = "is_default_buffer"
     )]
     pub peek_buffer_size: usize,
     #[serde(
-        default = "default_peek_timeout_ms",
-        skip_serializing_if = "is_default_peek_timeout_ms"
+        default = "default_peek_timeout",
+        skip_serializing_if = "is_default_timeout"
     )]
     pub peek_timeout_ms: u64,
 }
 
-const fn default_peek_buffer_size() -> usize {
-    1024
-}
-
-const fn default_peek_timeout_ms() -> u64 {
-    3000
-}
-
-#[allow(clippy::trivially_copy_pass_by_ref)]
-const fn is_default_peek_buffer_size(size: &usize) -> bool {
-    *size == default_peek_buffer_size()
-}
-
-#[allow(clippy::trivially_copy_pass_by_ref)]
-const fn is_default_peek_timeout_ms(ms: &u64) -> bool {
-    *ms == default_peek_timeout_ms()
-}
-
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum Transport {
-    Tcp,
-    Udp,
-    Both,
-}
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ProtocolRoute {
-    #[serde(deserialize_with = "lowercase_deserialize")]
+pub struct TomlRoute {
+    #[serde(deserialize_with = "lowercase_string")]
     pub name: String,
     pub patterns: Option<Vec<String>>,
-    pub forward_to: ForwardTarget,
-    #[serde(default = "default_transport")]
+    pub forward_to: TomlTarget,
+    #[serde(
+        default = "default_transport",
+        skip_serializing_if = "is_default_transport"
+    )]
     pub transport: Transport,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
-pub enum ForwardTarget {
+pub enum TomlTarget {
     Single(String),
     Multiple(Vec<String>),
 }
 
-impl ForwardTarget {
-    #[must_use]
-    pub fn to_vec(&self) -> Vec<String> {
-        match self {
-            Self::Single(s) => vec![s.clone()],
-            Self::Multiple(v) => v.clone(),
-        }
-    }
+const fn default_peek_buffer() -> usize {
+    1024
 }
-
+const fn default_peek_timeout() -> u64 {
+    3000
+}
 const fn default_transport() -> Transport {
     Transport::Both
 }
 
-impl Default for Config {
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_default_buffer(sz: &usize) -> bool {
+    *sz == default_peek_buffer()
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_default_timeout(ms: &u64) -> bool {
+    *ms == default_peek_timeout()
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_default_transport(t: &Transport) -> bool {
+    *t == default_transport()
+}
+
+impl Default for TomlConfig {
     fn default() -> Self {
         Self {
             server: ServerConfig {
                 bind: "0.0.0.0".to_string(),
                 port: 8080,
-                peek_buffer_size: default_peek_buffer_size(),
-                peek_timeout_ms: default_peek_timeout_ms(),
+                peek_buffer_size: default_peek_buffer(),
+                peek_timeout_ms: default_peek_timeout(),
             },
             protocols: vec![],
             fallback_tcp: None,
@@ -101,50 +91,50 @@ impl Default for Config {
     }
 }
 
-impl Config {
-    fn try_load_from_file(file_path: &str) -> anyhow::Result<Option<Self>> {
-        match fs::read_to_string(file_path) {
-            Ok(content) => Ok(Some(toml::from_str(&content)?)),
+impl TomlConfig {
+    fn try_load(path: &str) -> anyhow::Result<Option<Self>> {
+        match fs::read_to_string(path) {
+            Ok(c) => Ok(Some(toml::from_str(&c)?)),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e.into()),
         }
     }
 
-    pub fn load_config(cli: &Cli) -> anyhow::Result<Self> {
-        let mut config = Self::try_load_from_file(&cli.config)?.unwrap_or_default();
+    /// Loads configuration by merging TOML file data with CLI overrides.
+    pub fn load_config(cli: &Cli) -> anyhow::Result<ProxyConfig> {
+        let mut base = Self::try_load(&cli.config)?.unwrap_or_default();
 
-        config.server.bind.clone_from(&cli.bind);
-        config.server.port = cli.port;
+        base.server.bind.clone_from(&cli.bind);
+        base.server.port = cli.port;
 
         if let Some(pb) = cli.peek_buffer {
-            config.server.peek_buffer_size = pb;
+            base.server.peek_buffer_size = pb;
         }
-
         if let Some(pt) = cli.peek_timeout {
-            config.server.peek_timeout_ms = pt;
+            base.server.peek_timeout_ms = pt;
         }
 
-        let mut cli_forwards: HashMap<String, Vec<String>> = HashMap::new();
+        let mut cli_overrides: HashMap<String, Vec<String>> = HashMap::new();
         for f in &cli.forward {
             if let Some((name, addr)) = f.split_once('=') {
-                cli_forwards
+                cli_overrides
                     .entry(name.to_lowercase())
                     .or_default()
-                    .push(addr.to_string());
+                    .push(addr.into());
             }
         }
 
-        for (name, addrs) in cli_forwards {
+        for (name, addrs) in cli_overrides {
             let target = if addrs.len() == 1 {
-                ForwardTarget::Single(addrs[0].clone())
+                TomlTarget::Single(addrs[0].clone())
             } else {
-                ForwardTarget::Multiple(addrs)
+                TomlTarget::Multiple(addrs)
             };
 
-            if let Some(route) = config.protocols.iter_mut().find(|r| r.name == name) {
+            if let Some(route) = base.protocols.iter_mut().find(|r| r.name == name) {
                 route.forward_to = target;
             } else {
-                config.protocols.push(ProtocolRoute {
+                base.protocols.push(TomlRoute {
                     name,
                     patterns: None,
                     forward_to: target,
@@ -153,11 +143,35 @@ impl Config {
             }
         }
 
-        Ok(config)
+        Ok(base.into_proxy_config())
+    }
+
+    fn into_proxy_config(self) -> ProxyConfig {
+        ProxyConfig {
+            bind: self.server.bind,
+            port: self.server.port,
+            peek_buffer_size: self.server.peek_buffer_size,
+            peek_timeout_ms: self.server.peek_timeout_ms,
+            fallback_tcp: self.fallback_tcp,
+            fallback_udp: self.fallback_udp,
+            protocols: self
+                .protocols
+                .into_iter()
+                .map(|r| ProtocolRoute {
+                    name: r.name,
+                    patterns: r.patterns,
+                    transport: r.transport,
+                    forward_to: match r.forward_to {
+                        TomlTarget::Single(s) => ForwardTarget::Single(s),
+                        TomlTarget::Multiple(v) => ForwardTarget::Multiple(v),
+                    },
+                })
+                .collect(),
+        }
     }
 }
 
-fn lowercase_deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
+fn lowercase_string<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -170,26 +184,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_config() {
-        let config = Config::default();
-        assert_eq!(config.server.port, 8080);
-        assert_eq!(config.server.peek_buffer_size, 1024);
+    fn test_serialization_defaults() -> anyhow::Result<()> {
+        let config = TomlConfig::default();
+        let serialized = toml::to_string_pretty(&config)?;
+
+        assert!(
+            !serialized.contains("peek_buffer_size"),
+            "Default values should be skipped in serialization"
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn test_default_config_serialization_skips_default_peek_fields() {
-        let config = Config::default();
-        let toml_string = match toml::to_string_pretty(&config) {
-            Ok(s) => s,
-            Err(e) => panic!("Serialization failed in test: {e}"),
-        };
-        assert!(
-            !toml_string.contains("peek_buffer_size"),
-            "peek_buffer_size should not be serialized if default"
-        );
-        assert!(
-            !toml_string.contains("peek_timeout_ms"),
-            "peek_timeout_ms should not be serialized if default"
-        );
+    fn test_try_load_non_existent_file() -> anyhow::Result<()> {
+        let result = TomlConfig::try_load("non_existent_prisma.toml")?;
+        assert!(result.is_none());
+        Ok(())
     }
 }

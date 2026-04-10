@@ -54,8 +54,6 @@ pub fn print_config_guide() {
 [server]
 bind = "0.0.0.0"
 port = 8080
-peek_buffer_size = 1024
-peek_timeout_ms = 3000
 
 [[protocols]]
 name = "my_protocol"
@@ -64,9 +62,8 @@ forward_to = "127.0.0.1:9000"
 transport = "tcp"
 
 [[protocols]]
-name = "https"
-forward_to = "127.0.0.1:443"
-transport = "tcp"
+name = "http"
+forward_to = "127.0.0.1:3000"
 "#
         .dimmed()
     );

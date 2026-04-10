@@ -1,19 +1,23 @@
-use crate::config::{Config, ForwardTarget, ProtocolRoute, ServerConfig, Transport};
-use crate::display;
+use prisma_rs::types::Transport;
+
+use crate::{
+    config::{ServerConfig, TomlConfig, TomlRoute, TomlTarget},
+    display,
+};
 use std::fs;
 
 pub fn execute(path: &str) -> anyhow::Result<()> {
-    let default_config = Config {
+    let default_config = TomlConfig {
         server: ServerConfig {
             bind: "0.0.0.0".to_string(),
             port: 8080,
             peek_buffer_size: 1024,
             peek_timeout_ms: 3000,
         },
-        protocols: vec![ProtocolRoute {
+        protocols: vec![TomlRoute {
             name: "http".to_string(),
             patterns: None,
-            forward_to: ForwardTarget::Single("127.0.0.1:8080".to_string()),
+            forward_to: TomlTarget::Single("127.0.0.1:3000".to_string()),
             transport: Transport::Tcp,
         }],
         fallback_tcp: None,

@@ -3,6 +3,7 @@
 //! This module provides the infrastructure for identifying different protocols
 //! based on the initial data received (magic bytes, SNI, etc.).
 
+use crate::core::types::Transport;
 use memchr::memmem;
 
 /// DNS protocol identification.
@@ -30,6 +31,8 @@ pub trait PrismaProtocol: Send + Sync {
     fn name(&self) -> &str;
     /// Identifies the protocol based on the provided data.
     fn identify(&self, data: &[u8]) -> Option<ProtocolMatch>;
+    /// Returns the transport type of the protocol.
+    fn transport(&self) -> Transport;
 }
 
 /// A simple protocol identification implementation based on string patterns.
@@ -58,6 +61,10 @@ impl PrismaProtocol for DynamicProtocol {
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn transport(&self) -> Transport {
+        Transport::Both
     }
 }
 
