@@ -18,7 +18,7 @@ pub fn execute(path: &str) -> anyhow::Result<()> {
             name: "http".to_string(),
             patterns: None,
             forward_to: TomlTarget::Single("127.0.0.1:3000".to_string()),
-            transport: Transport::Tcp,
+            transport: Transport::Both,
         }],
         fallback_tcp: None,
         fallback_udp: None,
