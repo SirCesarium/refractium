@@ -33,6 +33,8 @@ pub struct ServerConfig {
         skip_serializing_if = "is_default_connections"
     )]
     pub max_connections: usize,
+    #[serde(default = "default_hot_reload")]
+    pub hot_reload: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -63,6 +65,9 @@ const fn default_peek_timeout() -> u64 {
 }
 const fn default_max_connections() -> usize {
     10000
+}
+const fn default_hot_reload() -> bool {
+    true
 }
 const fn default_transport() -> Transport {
     Transport::Both
@@ -97,6 +102,7 @@ impl Default for TomlConfig {
                 peek_buffer_size: default_peek_buffer(),
                 peek_timeout_ms: default_peek_timeout(),
                 max_connections: default_max_connections(),
+                hot_reload: default_hot_reload(),
             },
             protocols: vec![],
             fallback_tcp: None,
@@ -129,6 +135,10 @@ impl TomlConfig {
         }
         if let Some(mc) = cli.max_connections {
             base.server.max_connections = mc;
+        }
+
+        if cli.no_hot_reload {
+            base.server.hot_reload = false;
         }
 
         let mut cli_overrides: HashMap<String, Vec<String>> = HashMap::new();
@@ -170,6 +180,7 @@ impl TomlConfig {
             peek_buffer_size: self.server.peek_buffer_size,
             peek_timeout_ms: self.server.peek_timeout_ms,
             max_connections: self.server.max_connections,
+            hot_reload: self.server.hot_reload,
             fallback_tcp: self.fallback_tcp,
             fallback_udp: self.fallback_udp,
             protocols: self

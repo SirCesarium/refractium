@@ -32,6 +32,9 @@ pub struct Cli {
 
     #[arg(long)]
     pub max_connections: Option<usize>,
+
+    #[arg(long)]
+    pub no_hot_reload: bool,
 }
 
 #[derive(Subcommand, Clone)]
