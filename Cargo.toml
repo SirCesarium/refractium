@@ -28,7 +28,10 @@ tracing = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", optional = true }
 
 [features]
-default = ["cli", "logging"]
+default = ["cli", "logging", "protocols"]
+full = ["cli", "logging", "protocols"]
+
+# Logic groups
 cli = [
     "dep:anyhow",
     "dep:clap",
@@ -39,6 +42,14 @@ cli = [
     "dep:tracing-subscriber",
 ]
 logging = ["dep:tracing", "dep:tracing-subscriber"]
+protocols = ["proto-http", "proto-https", "proto-ssh", "proto-dns", "proto-ftp"]
+
+# Individual protocols
+proto-http = []
+proto-https = []
+proto-ssh = []
+proto-dns = []
+proto-ftp = []
 
 [[bin]]
 name = "prisma"
