@@ -7,14 +7,19 @@ use crate::core::types::Transport;
 use memchr::memmem;
 
 /// DNS protocol identification.
+#[cfg(feature = "proto-dns")]
 pub mod dns;
 /// FTP protocol identification.
+#[cfg(feature = "proto-ftp")]
 pub mod ftp;
 /// HTTP protocol identification.
+#[cfg(feature = "proto-http")]
 pub mod http;
 /// HTTPS protocol identification.
+#[cfg(feature = "proto-https")]
 pub mod https;
 /// SSH protocol identification.
+#[cfg(feature = "proto-ssh")]
 pub mod ssh;
 
 /// A match result for a protocol identification attempt.

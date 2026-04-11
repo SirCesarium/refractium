@@ -83,12 +83,17 @@ fn setup_engine(
     ];
 
     if matches!(filter, Transport::Tcp | Transport::Both) {
+        #[cfg(feature = "proto-http")]
         registry.register(Box::new(Http));
+        #[cfg(feature = "proto-https")]
         registry.register(Box::new(Https));
+        #[cfg(feature = "proto-ssh")]
         registry.register(Box::new(Ssh));
+        #[cfg(feature = "proto-ftp")]
         registry.register(Box::new(Ftp));
     }
     if matches!(filter, Transport::Udp | Transport::Both) {
+        #[cfg(feature = "proto-dns")]
         registry.register(Box::new(Dns));
     }
 
