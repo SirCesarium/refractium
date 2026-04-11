@@ -29,6 +29,9 @@ pub struct Cli {
 
     #[arg(long)]
     pub peek_timeout: Option<u64>,
+
+    #[arg(long)]
+    pub max_connections: Option<usize>,
 }
 
 #[derive(Subcommand, Clone)]

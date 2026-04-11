@@ -23,6 +23,7 @@ pub fn setup_prisma(config: &ProxyConfig, cancel_token: CancellationToken) -> Pr
         .registries(registry_tcp, registry_udp)
         .routes(routes_tcp, routes_udp)
         .peek_config(config.peek_buffer_size, config.peek_timeout_ms)
+        .max_connections(config.max_connections)
         .cancel_token(cancel_token)
         .build()
 }

@@ -13,6 +13,7 @@ pub fn execute(path: &str) -> anyhow::Result<()> {
             port: 8080,
             peek_buffer_size: 1024,
             peek_timeout_ms: 3000,
+            max_connections: 10000,
         },
         protocols: vec![TomlRoute {
             name: "http".to_string(),
