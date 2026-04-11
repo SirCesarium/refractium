@@ -28,6 +28,11 @@ pub struct ServerConfig {
         skip_serializing_if = "is_default_timeout"
     )]
     pub peek_timeout_ms: u64,
+    #[serde(
+        default = "default_max_connections",
+        skip_serializing_if = "is_default_connections"
+    )]
+    pub max_connections: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -56,6 +61,9 @@ const fn default_peek_buffer() -> usize {
 const fn default_peek_timeout() -> u64 {
     3000
 }
+const fn default_max_connections() -> usize {
+    10000
+}
 const fn default_transport() -> Transport {
     Transport::Both
 }
@@ -71,6 +79,11 @@ const fn is_default_timeout(ms: &u64) -> bool {
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_default_connections(sz: &usize) -> bool {
+    *sz == default_max_connections()
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_default_transport(t: &Transport) -> bool {
     *t == default_transport()
 }
@@ -83,6 +96,7 @@ impl Default for TomlConfig {
                 port: 8080,
                 peek_buffer_size: default_peek_buffer(),
                 peek_timeout_ms: default_peek_timeout(),
+                max_connections: default_max_connections(),
             },
             protocols: vec![],
             fallback_tcp: None,
@@ -112,6 +126,9 @@ impl TomlConfig {
         }
         if let Some(pt) = cli.peek_timeout {
             base.server.peek_timeout_ms = pt;
+        }
+        if let Some(mc) = cli.max_connections {
+            base.server.max_connections = mc;
         }
 
         let mut cli_overrides: HashMap<String, Vec<String>> = HashMap::new();
@@ -152,6 +169,7 @@ impl TomlConfig {
             port: self.server.port,
             peek_buffer_size: self.server.peek_buffer_size,
             peek_timeout_ms: self.server.peek_timeout_ms,
+            max_connections: self.server.max_connections,
             fallback_tcp: self.fallback_tcp,
             fallback_udp: self.fallback_udp,
             protocols: self

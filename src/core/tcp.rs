@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{io, time};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 /// A high-performance TCP server that performs protocol identification and routing.
@@ -17,18 +18,20 @@ pub struct TcpServer {
     _health: Arc<HealthMonitor>,
     peek_buffer_size: usize,
     peek_timeout_ms: u64,
+    limit: Arc<Semaphore>,
     cancel_token: CancellationToken,
 }
 
 impl TcpServer {
     /// Creates a new `TcpServer` instance.
     #[must_use]
-    pub const fn new(
+    pub fn new(
         addr: SocketAddr,
         router: Arc<Router>,
         health: Arc<HealthMonitor>,
         peek_buffer_size: usize,
         peek_timeout_ms: u64,
+        max_connections: usize,
         cancel_token: CancellationToken,
     ) -> Self {
         Self {
@@ -37,6 +40,7 @@ impl TcpServer {
             _health: health,
             peek_buffer_size,
             peek_timeout_ms,
+            limit: Arc::new(Semaphore::new(max_connections)),
             cancel_token,
         }
     }
@@ -72,8 +76,17 @@ impl TcpServer {
         let router = Arc::clone(&self.router);
         let peek_size = self.peek_buffer_size;
         let peek_timeout = self.peek_timeout_ms;
+        let limit = Arc::clone(&self.limit);
 
         tokio::spawn(async move {
+            let _permit = match limit.try_acquire() {
+                Ok(p) => p,
+                Err(_) => {
+                    prisma_debug!("Connection limit reached, rejecting {}", peer);
+                    return;
+                }
+            };
+
             if let Err(e) = Self::handle_connection(socket, router, peek_size, peek_timeout).await {
                 prisma_debug!("TCP Error at {}: {}", peer, e);
             }
@@ -96,9 +109,7 @@ impl TcpServer {
 
             let n = socket.peek(&mut buf).await.map_err(PrismaError::Io)?;
 
-            if n > 0
-                && let Some(target_addr) = router.route(&buf[..n]).await
-            {
+            if n > 0 && let Some(target_addr) = router.route(&buf[..n]).await {
                 let backend = TcpStream::connect(&target_addr).await?;
                 return proxy_tcp(socket, backend).await.map_err(PrismaError::Io);
             }

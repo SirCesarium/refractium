@@ -34,6 +34,7 @@ pub struct Prisma {
     health: Arc<HealthMonitor>,
     peek_buffer_size: usize,
     peek_timeout_ms: u64,
+    max_connections: usize,
     cancel_token: CancellationToken,
 }
 
@@ -81,6 +82,7 @@ impl Prisma {
             Arc::clone(&self.health),
             self.peek_buffer_size,
             self.peek_timeout_ms,
+            self.max_connections,
             self.cancel_token.clone(),
         )
         .start()
@@ -122,6 +124,7 @@ pub struct PrismaBuilder {
     routes_udp: HashMap<String, Vec<String>>,
     peek_size: usize,
     peek_timeout: u64,
+    max_connections: usize,
     cancel_token: Option<CancellationToken>,
 }
 
@@ -136,6 +139,7 @@ impl PrismaBuilder {
             routes_udp: HashMap::new(),
             peek_size: 1024,
             peek_timeout: 3000,
+            max_connections: 10000,
             cancel_token: None,
         }
     }
@@ -168,6 +172,13 @@ impl PrismaBuilder {
         self
     }
 
+    /// Sets the maximum number of concurrent connections.
+    #[must_use]
+    pub const fn max_connections(mut self, max: usize) -> Self {
+        self.max_connections = max;
+        self
+    }
+
     /// Sets the cancellation token for the engine.
     #[must_use]
     pub fn cancel_token(mut self, token: CancellationToken) -> Self {
@@ -190,6 +201,7 @@ impl PrismaBuilder {
             health,
             peek_buffer_size: self.peek_size,
             peek_timeout_ms: self.peek_timeout,
+            max_connections: self.max_connections,
             cancel_token: self.cancel_token.unwrap_or_default(),
         }
     }

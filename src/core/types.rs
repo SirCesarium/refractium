@@ -56,6 +56,8 @@ pub struct ProxyConfig {
     pub peek_buffer_size: usize,
     /// Timeout in milliseconds for the peeking phase.
     pub peek_timeout_ms: u64,
+    /// Maximum number of concurrent connections.
+    pub max_connections: usize,
     /// List of defined protocol routing rules.
     pub protocols: Vec<ProtocolRoute>,
     /// Optional fallback address for unmatched TCP traffic.
