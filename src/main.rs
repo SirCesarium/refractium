@@ -24,6 +24,7 @@ use std::path::Path;
 #[cfg(feature = "watch")]
 use tokio::sync::mpsc;
 
+#[allow(clippy::too_many_lines)]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     fmt::init();
@@ -56,14 +57,16 @@ async fn main() -> anyhow::Result<()> {
     let terminate = async {
         #[cfg(unix)]
         {
+            use std::io;
+
             let mut sig = signal::unix::signal(signal::unix::SignalKind::terminate())?;
             sig.recv().await;
-            Ok::<(), std::io::Error>(())
+            Ok::<(), io::Error>(())
         }
         #[cfg(not(unix))]
         {
             std::future::pending::<()>().await;
-            Ok::<(), std::io::Error>(())
+            Ok::<(), io::Error>(())
         }
     };
 
@@ -89,20 +92,20 @@ async fn main() -> anyhow::Result<()> {
         {
             let (tx, mut rx) = mpsc::channel(1);
             let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
-                if let Ok(event) = res {
-                    if event.kind.is_modify() {
-                        let _ = tx.blocking_send(());
-                    }
+                if let Ok(event) = res
+                    && event.kind.is_modify()
+                {
+                    let _ = tx.blocking_send(());
                 }
             })?;
 
             let config_path = cli_reload.config.clone();
             if Path::new(&config_path).exists() {
                 watcher.watch(Path::new(&config_path), RecursiveMode::NonRecursive)?;
-                
+
                 let cli_watch = cli_reload.clone();
                 let prisma_watch = Arc::clone(&prisma_reload);
-                
+
                 tokio::spawn(async move {
                     while rx.recv().await.is_some() {
                         display::print_success("Changes detected in configuration file");
