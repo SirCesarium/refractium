@@ -27,8 +27,8 @@ use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use udp::UdpServer;
 
-/// Main Prisma engine that manages TCP and UDP servers.
-pub struct Prisma {
+/// Main Refractium engine that manages TCP and UDP servers.
+pub struct Refractium {
     router_tcp: Arc<Router>,
     router_udp: Arc<Router>,
     health: Arc<HealthMonitor>,
@@ -38,11 +38,11 @@ pub struct Prisma {
     cancel_token: CancellationToken,
 }
 
-impl Prisma {
-    /// Returns a new `PrismaBuilder` instance.
+impl Refractium {
+    /// Returns a new `RefractiumBuilder` instance.
     #[must_use]
-    pub fn builder() -> PrismaBuilder {
-        PrismaBuilder::new()
+    pub fn builder() -> RefractiumBuilder {
+        RefractiumBuilder::new()
     }
 
     /// Reloads the routing table for both TCP and UDP.
@@ -74,7 +74,7 @@ impl Prisma {
     ///
     /// # Errors
     ///
-    /// Returns a `PrismaError` if the server fails to start or encounters a fatal error.
+    /// Returns a `RefractiumError` if the server fails to start or encounters a fatal error.
     pub async fn run_tcp(&self, addr: SocketAddr) -> Result<()> {
         TcpServer::new(
             addr,
@@ -93,7 +93,7 @@ impl Prisma {
     ///
     /// # Errors
     ///
-    /// Returns a `PrismaError` if the server fails to start or encounters a fatal error.
+    /// Returns a `RefractiumError` if the server fails to start or encounters a fatal error.
     pub async fn run_udp(&self, addr: SocketAddr) -> Result<()> {
         UdpServer::new(
             addr,
@@ -109,15 +109,49 @@ impl Prisma {
     ///
     /// # Errors
     ///
-    /// Returns a `PrismaError` if either server fails to start.
+    /// Returns a `RefractiumError` if either server fails to start.
     pub async fn run_both(&self, addr: SocketAddr) -> Result<()> {
         tokio::try_join!(self.run_tcp(addr), self.run_udp(addr))?;
         Ok(())
     }
+
+    /// Prints a health report of all configured backends.
+    pub async fn report_health(&self) {
+        let tcp_status = self.router_tcp.get_health_status().await;
+        let udp_status = self.router_udp.get_health_status().await;
+
+        if !tcp_status.is_empty() {
+            println!("\n[TCP Backends]");
+            Self::print_status_map(tcp_status);
+        }
+        if !udp_status.is_empty() {
+            println!("\n[UDP Backends]");
+            Self::print_status_map(udp_status);
+        }
+        println!();
+    }
+
+    fn print_status_map(status: HashMap<String, Vec<(String, bool)>>) {
+        for (proto, backends) in status {
+            print!("  {proto} -> ");
+            for (idx, (addr, alive)) in backends.iter().enumerate() {
+                if idx > 0 {
+                    print!(", ");
+                }
+                let status_str = if *alive {
+                    "\x1b[32mUP\x1b[0m" // Green
+                } else {
+                    "\x1b[31mDOWN\x1b[0m" // Red
+                };
+                print!("{addr} [{status_str}]");
+            }
+            println!();
+        }
+    }
 }
 
-/// Builder for the `Prisma` engine.
-pub struct PrismaBuilder {
+/// Builder for the `Refractium` engine.
+pub struct RefractiumBuilder {
     registry_tcp: Option<Arc<ProtocolRegistry>>,
     registry_udp: Option<Arc<ProtocolRegistry>>,
     routes_tcp: HashMap<String, Vec<String>>,
@@ -128,8 +162,8 @@ pub struct PrismaBuilder {
     cancel_token: Option<CancellationToken>,
 }
 
-impl PrismaBuilder {
-    /// Creates a new `PrismaBuilder` with default values.
+impl RefractiumBuilder {
+    /// Creates a new `RefractiumBuilder` with default values.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -186,16 +220,16 @@ impl PrismaBuilder {
         self
     }
 
-    /// Builds the `Prisma` engine.
+    /// Builds the `Refractium` engine.
     #[must_use]
-    pub fn build(self) -> Prisma {
+    pub fn build(self) -> Refractium {
         let health = Arc::new(HealthMonitor::new());
         self.init_health(&health);
 
         let router_tcp = Self::do_build_router(self.routes_tcp, self.registry_tcp, &health);
         let router_udp = Self::do_build_router(self.routes_udp, self.registry_udp, &health);
 
-        Prisma {
+        Refractium {
             router_tcp,
             router_udp,
             health,
@@ -228,7 +262,7 @@ impl PrismaBuilder {
     }
 }
 
-impl Default for PrismaBuilder {
+impl Default for RefractiumBuilder {
     fn default() -> Self {
         Self::new()
     }

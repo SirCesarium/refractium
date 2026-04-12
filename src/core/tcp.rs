@@ -1,8 +1,8 @@
 use crate::core::health::HealthMonitor;
 use crate::core::proxy::proxy_tcp;
-use crate::core::router::Router;
-use crate::errors::{PrismaError, Result};
-use crate::prisma_debug;
+use crate::core::router::{RouteResult, Router};
+use crate::errors::{RefractiumError, Result};
+use crate::refractium_debug;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,20 +49,15 @@ impl TcpServer {
     ///
     /// # Errors
     ///
-    /// Returns a `PrismaError` if:
-    /// - Binding to the address fails.
-    /// - Accepting a connection fails.
+    /// Returns a `RefractiumError` if binding to the address fails.
     pub async fn start(&self) -> Result<()> {
         let listener = TcpListener::bind(self.addr)
             .await
-            .map_err(|e| PrismaError::BindError(self.addr.to_string(), e))?;
+            .map_err(|e| RefractiumError::BindError(self.addr.to_string(), e))?;
 
         loop {
             tokio::select! {
-                () = self.cancel_token.cancelled() => {
-                    prisma_debug!("TCP Server shutting down...");
-                    break;
-                }
+                () = self.cancel_token.cancelled() => break,
                 accept_result = listener.accept() => {
                     self.accept_connection(accept_result)?;
                 }
@@ -74,21 +69,18 @@ impl TcpServer {
     fn accept_connection(&self, res: io::Result<(TcpStream, SocketAddr)>) -> Result<()> {
         let (socket, peer) = res?;
         let router = Arc::clone(&self.router);
+        let limit = Arc::clone(&self.limit);
         let peek_size = self.peek_buffer_size;
         let peek_timeout = self.peek_timeout_ms;
-        let limit = Arc::clone(&self.limit);
 
         tokio::spawn(async move {
-            let _permit = match limit.try_acquire() {
-                Ok(p) => p,
-                Err(_) => {
-                    prisma_debug!("Connection limit reached, rejecting {}", peer);
-                    return;
-                }
+            let Ok(_permit) = limit.try_acquire() else {
+                refractium_debug!("Connection limit reached, rejecting {}", peer);
+                return;
             };
 
             if let Err(e) = Self::handle_connection(socket, router, peek_size, peek_timeout).await {
-                prisma_debug!("TCP Error at {}: {}", peer, e);
+                refractium_debug!("TCP Error at {}: {}", peer, e);
             }
         });
         Ok(())
@@ -100,24 +92,54 @@ impl TcpServer {
         peek_size: usize,
         peek_timeout: u64,
     ) -> Result<()> {
+        let route = Self::identify_protocol(&socket, &router, peek_size, peek_timeout).await?;
+
+        match route {
+            RouteResult::Matched(proto, addr) => {
+                refractium_debug!("Route matched: {} -> {}", proto, addr);
+                let backend = TcpStream::connect(&addr).await?;
+                proxy_tcp(socket, backend)
+                    .await
+                    .map_err(RefractiumError::Io)
+            }
+            RouteResult::Fallback(addr) => {
+                refractium_debug!("No protocol match, routing to fallback -> {}", addr);
+                let backend = TcpStream::connect(&addr).await?;
+                proxy_tcp(socket, backend)
+                    .await
+                    .map_err(RefractiumError::Io)
+            }
+            RouteResult::Discarded => {
+                refractium_debug!("No route found and no healthy fallback. Dropping connection.");
+                Ok(())
+            }
+        }
+    }
+
+    async fn identify_protocol(
+        socket: &TcpStream,
+        router: &Router,
+        peek_size: usize,
+        peek_timeout: u64,
+    ) -> Result<RouteResult> {
         let mut buf = vec![0u8; peek_size];
         let start = time::Instant::now();
-        let timeout_duration = Duration::from_millis(peek_timeout);
+        let timeout = Duration::from_millis(peek_timeout);
 
         loop {
-            socket.readable().await.map_err(PrismaError::Io)?;
+            socket.readable().await.map_err(RefractiumError::Io)?;
+            let n = socket.peek(&mut buf).await.map_err(RefractiumError::Io)?;
 
-            let n = socket.peek(&mut buf).await.map_err(PrismaError::Io)?;
-
-            if n > 0 && let Some(target_addr) = router.route(&buf[..n]).await {
-                let backend = TcpStream::connect(&target_addr).await?;
-                return proxy_tcp(socket, backend).await.map_err(PrismaError::Io);
+            if n > 0 {
+                // If router returns Some, it means identification is DONE (match, fallback or discard)
+                if let Some(result) = router.route(&buf[..n]).await {
+                    return Ok(result);
+                }
             }
 
-            if start.elapsed() >= timeout_duration {
-                return Err(PrismaError::Generic(
-                    "Protocol identification timeout".to_string(),
-                ));
+            if start.elapsed() >= timeout {
+                // Time's up. Force fallback if available.
+                return Ok(router.route_fallback().await);
             }
         }
     }

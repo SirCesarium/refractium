@@ -1,9 +1,9 @@
 use std::{io, result};
 use thiserror::Error;
 
-/// Main error type for the Prisma-RS library.
+/// Main error type for the Refractium library.
 #[derive(Error, Debug)]
-pub enum PrismaError {
+pub enum RefractiumError {
     /// Error returned when binding to a socket fails.
     #[error("Failed to bind to {0}: {1}")]
     BindError(String, io::Error),
@@ -29,5 +29,5 @@ pub enum PrismaError {
     Unknown,
 }
 
-/// Convenience alias for `std::result::Result<T, PrismaError>`.
-pub type Result<T> = result::Result<T, PrismaError>;
+/// Convenience alias for `std::result::Result<T, RefractiumError>`.
+pub type Result<T> = result::Result<T, RefractiumError>;

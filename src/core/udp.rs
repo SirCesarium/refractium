@@ -1,7 +1,7 @@
 use crate::core::health::HealthMonitor;
-use crate::core::router::Router;
-use crate::errors::{PrismaError, Result};
-use crate::prisma_debug;
+use crate::core::router::{RouteResult, Router};
+use crate::errors::{RefractiumError, Result};
+use crate::refractium_debug;
 use bytes::Bytes;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -40,26 +40,21 @@ impl UdpServer {
 
     /// Starts the UDP server and begins processing packets.
     ///
-    /// This method blocks until the cancellation token is triggered or a fatal
-    /// error occurs.
-    ///
     /// # Errors
     ///
-    /// Returns a `PrismaError` if:
-    /// - Binding to the address fails.
-    /// - Receiving a packet from the socket fails.
+    /// Returns a `RefractiumError` if binding to the address fails.
     pub async fn start(&self) -> Result<()> {
         let socket = Arc::new(
             UdpSocket::bind(self.addr)
                 .await
-                .map_err(|e| PrismaError::BindError(self.addr.to_string(), e))?,
+                .map_err(|e| RefractiumError::BindError(self.addr.to_string(), e))?,
         );
         let mut buf = [0u8; 2048];
 
         loop {
             tokio::select! {
                 () = self.cancel_token.cancelled() => {
-                    prisma_debug!("UDP Server shutting down...");
+                    refractium_debug!("UDP Server shutting down...");
                     break;
                 }
                 recv_result = socket.recv_from(&mut buf) => {
@@ -86,9 +81,23 @@ impl UdpServer {
             }
         }
 
-        let target_addr = self.router.route(&data).await;
-        let Some(target) = target_addr else {
-            return Ok(());
+        let route_opt = self.router.route(&data).await;
+        let target = match route_opt {
+            Some(RouteResult::Matched(proto, addr)) => {
+                refractium_debug!("UDP Route matched: {} -> {}", proto, addr);
+                addr
+            }
+            Some(RouteResult::Fallback(addr)) => {
+                refractium_debug!("UDP No match, using fallback -> {}", addr);
+                addr
+            }
+            Some(RouteResult::Discarded) | None => {
+                refractium_debug!(
+                    "UDP identification failed or no route. Discarding packet from {}",
+                    peer
+                );
+                return Ok(());
+            }
         };
 
         let proxy_socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await?);
@@ -102,11 +111,11 @@ impl UdpServer {
         tokio::spawn(async move {
             tokio::select! {
                 () = token.cancelled() => {
-                    prisma_debug!("Closing UDP session for {} due to shutdown", peer);
+                    refractium_debug!("Closing UDP session for {} due to shutdown", peer);
                 }
                 res = Self::handle_session(data, target, peer, socket, proxy_socket, sessions_task) => {
                     if let Err(e) = res {
-                        prisma_debug!("UDP Session Error: {}", e);
+                        refractium_debug!("UDP Session Error: {}", e);
                     }
                 }
             }
@@ -130,7 +139,7 @@ impl UdpServer {
         loop {
             tokio::select! {
                 result = proxy_sock.recv_from(&mut resp_buf) => {
-                    let (n, _) = result.map_err(PrismaError::Io)?;
+                    let (n, _) = result.map_err(RefractiumError::Io)?;
                     main_sock.send_to(&resp_buf[..n], &peer).await?;
                 }
                 () = time::sleep(timeout_duration) => {

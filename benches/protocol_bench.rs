@@ -1,15 +1,15 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use prisma_rs::protocols::DynamicProtocol;
-use prisma_rs::protocols::ProtocolRegistry;
-use prisma_rs::protocols::dns::Dns;
-use prisma_rs::protocols::ftp::Ftp;
-use prisma_rs::protocols::http::Http;
-use prisma_rs::protocols::https::Https;
-use prisma_rs::protocols::ssh::Ssh;
 use rand::rng;
 use rand::seq::IndexedRandom;
+use refractium::protocols::DynamicProtocol;
+use refractium::protocols::ProtocolRegistry;
+use refractium::protocols::dns::Dns;
+use refractium::protocols::ftp::Ftp;
+use refractium::protocols::http::Http;
+use refractium::protocols::https::Https;
+use refractium::protocols::ssh::Ssh;
 
 fn setup_full_registry() -> ProtocolRegistry {
     let mut registry = ProtocolRegistry::new();

@@ -1,12 +1,11 @@
 use colored::{Color, Colorize};
 
 pub const BANNER: &str = r"
-                _                     
-    ____  _____(_)________ ___  ____ _
-   / __ \/ ___/ / ___/ __ `__ \/ __ `/
-  / /_/ / /  / /__  / / / / / / /_/ / 
- / .___/_/  /_/____/_/ /_/ /_/\__,_/  
-/_/                                   ";
+              ____                __  _               
+   ________  / __/________ ______/ /_(_)_  ______ ___ 
+  / ___/ _ \/ /_/ ___/ __ `/ ___/ __/ / / / / __ `__ \
+ / /  /  __/ __/ /  / /_/ / /__/ /_/ / /_/ / / / / / /
+/_/   \___/_/ /_/   \__,_/\___/\__/_/\__,_/_/ /_/ /_/ ";
 
 pub fn print_banner() {
     let colors = [
@@ -22,7 +21,6 @@ pub fn print_banner() {
         let color = colors[i % colors.len()];
         println!("{}", line.color(color).bold());
     }
-    println!("{}\n", " 💎🌈 L4 Proxy Multiplexer ".dimmed());
 }
 
 pub fn print_info(protocol: &str, bind: &str, port: u16) {
@@ -44,10 +42,10 @@ pub fn print_config_guide() {
     println!("{}", "Configuration not found.".yellow().bold());
     println!(
         "Use {} to generate a default config file.",
-        "prisma init".green()
+        "refractium init".green()
     );
 
-    println!("\n{}", "Manual Configuration (prisma.toml):".bold());
+    println!("\n{}", "Manual Configuration (refractium.toml):".bold());
     println!(
         "{}",
         r#"
@@ -69,7 +67,7 @@ forward_to = "127.0.0.1:3000"
     );
 
     println!("\n{}", "Command line overrides:".bold());
-    println!("  prisma --forward \"name=addr\"");
+    println!("  refractium --forward \"name=addr\"");
 }
 
 pub fn print_error(msg: &str) {

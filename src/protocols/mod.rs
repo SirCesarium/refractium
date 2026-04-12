@@ -31,7 +31,7 @@ pub struct ProtocolMatch {
 }
 
 /// A trait for protocol identification logic.
-pub trait PrismaProtocol: Send + Sync {
+pub trait RefractiumProtocol: Send + Sync {
     /// Returns the name of the protocol.
     fn name(&self) -> &str;
     /// Identifies the protocol based on the provided data.
@@ -48,7 +48,7 @@ pub struct DynamicProtocol {
     pub patterns: Vec<String>,
 }
 
-impl PrismaProtocol for DynamicProtocol {
+impl RefractiumProtocol for DynamicProtocol {
     fn identify(&self, data: &[u8]) -> Option<ProtocolMatch> {
         let matched = self
             .patterns
@@ -75,7 +75,7 @@ impl PrismaProtocol for DynamicProtocol {
 
 /// A registry for storing and querying protocol identification logic.
 pub struct ProtocolRegistry {
-    protocols: Vec<Box<dyn PrismaProtocol>>,
+    protocols: Vec<Box<dyn RefractiumProtocol>>,
 }
 
 impl Default for ProtocolRegistry {
@@ -94,7 +94,7 @@ impl ProtocolRegistry {
     }
 
     /// Registers a new protocol identification logic.
-    pub fn register(&mut self, proto: Box<dyn PrismaProtocol>) {
+    pub fn register(&mut self, proto: Box<dyn RefractiumProtocol>) {
         self.protocols.push(proto);
     }
 

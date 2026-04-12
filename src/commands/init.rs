@@ -1,4 +1,4 @@
-use prisma_rs::types::Transport;
+use refractium::types::Transport;
 
 use crate::{
     config::{ServerConfig, TomlConfig, TomlRoute, TomlTarget},

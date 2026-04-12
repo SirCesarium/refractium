@@ -1,5 +1,5 @@
 use crate::commands::Cli;
-use prisma_rs::core::types::{ForwardTarget, ProtocolRoute, ProxyConfig, Transport};
+use refractium::core::types::{ForwardTarget, ProtocolRoute, ProxyConfig, Transport};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_try_load_non_existent_file() -> anyhow::Result<()> {
-        let result = TomlConfig::try_load("non_existent_prisma.toml")?;
+        let result = TomlConfig::try_load("non_existent_refractium.toml")?;
         assert!(result.is_none());
         Ok(())
     }

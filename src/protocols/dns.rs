@@ -1,12 +1,12 @@
 //! DNS protocol identification logic.
 
 use crate::core::types::Transport;
-use crate::protocols::{PrismaProtocol, ProtocolMatch};
+use crate::protocols::{ProtocolMatch, RefractiumProtocol};
 
 /// DNS protocol identification implementation.
 pub struct Dns;
 
-impl PrismaProtocol for Dns {
+impl RefractiumProtocol for Dns {
     fn identify(&self, data: &[u8]) -> Option<ProtocolMatch> {
         if data.len() < 12 {
             return None;

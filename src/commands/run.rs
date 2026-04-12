@@ -1,13 +1,13 @@
 use crate::commands::Commands;
 use crate::display;
-use prisma_rs::core::Prisma;
-use prisma_rs::protocols::dns::Dns;
-use prisma_rs::protocols::ftp::Ftp;
-use prisma_rs::protocols::http::Http;
-use prisma_rs::protocols::https::Https;
-use prisma_rs::protocols::ssh::Ssh;
-use prisma_rs::protocols::{DynamicProtocol, ProtocolRegistry};
-use prisma_rs::types::{ProxyConfig, Transport};
+use refractium::core::Refractium;
+use refractium::protocols::dns::Dns;
+use refractium::protocols::ftp::Ftp;
+use refractium::protocols::http::Http;
+use refractium::protocols::https::Https;
+use refractium::protocols::ssh::Ssh;
+use refractium::protocols::{DynamicProtocol, ProtocolRegistry};
+use refractium::types::{ProxyConfig, Transport};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::process;
@@ -15,11 +15,11 @@ use std::sync::Arc;
 use tokio::net::lookup_host;
 use tokio_util::sync::CancellationToken;
 
-pub fn setup_prisma(config: &ProxyConfig, cancel_token: CancellationToken) -> Prisma {
+pub fn setup_refractium(config: &ProxyConfig, cancel_token: CancellationToken) -> Refractium {
     let (registry_tcp, routes_tcp) = setup_engine(config, &Transport::Tcp);
     let (registry_udp, routes_udp) = setup_engine(config, &Transport::Udp);
 
-    Prisma::builder()
+    Refractium::builder()
         .registries(registry_tcp, registry_udp)
         .routes(routes_tcp, routes_udp)
         .peek_config(config.peek_buffer_size, config.peek_timeout_ms)
@@ -28,9 +28,9 @@ pub fn setup_prisma(config: &ProxyConfig, cancel_token: CancellationToken) -> Pr
         .build()
 }
 
-pub async fn execute_prisma(
+pub async fn execute_refractium(
     command: Option<Commands>,
-    prisma: Arc<Prisma>,
+    refractium: Arc<Refractium>,
     _cancel_token: CancellationToken,
 ) -> anyhow::Result<()> {
     let addr = resolve_addr_from_str("0.0.0.0:8080").await?;
@@ -38,26 +38,54 @@ pub async fn execute_prisma(
     match command {
         Some(Commands::Tcp) => {
             display::print_info("TCP", "0.0.0.0", 8080);
-            prisma.run_tcp(addr).await.map_err(Into::into)
+            refractium.run_tcp(addr).await.map_err(Into::into)
         }
         Some(Commands::Udp) => {
             display::print_info("UDP", "0.0.0.0", 8080);
-            prisma.run_udp(addr).await.map_err(Into::into)
+            refractium.run_udp(addr).await.map_err(Into::into)
         }
         _ => {
             display::print_info("TCP + UDP", "0.0.0.0", 8080);
-            prisma.run_both(addr).await.map_err(Into::into)
+            refractium.run_both(addr).await.map_err(Into::into)
         }
     }
 }
 
 pub fn get_routes(config: &ProxyConfig, filter: &Transport) -> HashMap<String, Vec<String>> {
     let mut routes = HashMap::new();
+    let built_in_map = [
+        ("http", Transport::Tcp),
+        ("https", Transport::Tcp),
+        ("ssh", Transport::Tcp),
+        ("ftp", Transport::Tcp),
+        ("dns", Transport::Udp),
+    ];
+
     for route in &config.protocols {
-        if route.transport == *filter || route.transport == Transport::Both {
-            routes.insert(route.name.clone(), route.forward_to.to_vec());
+        let mut effective_transport = &route.transport;
+
+        // If it's a built-in, enforce its native transport
+        if let Some(&(name, ref native)) = built_in_map.iter().find(|(n, _)| *n == route.name) {
+            if route.transport == Transport::Both {
+                effective_transport = native;
+            } else if route.transport != *native {
+                display::print_error(&format!(
+                    "Protocol mismatch: '{}' must be {:?}, but is configured as {:?}",
+                    name, native, route.transport
+                ));
+                process::exit(1);
+            }
+        }
+
+        if *effective_transport == *filter || *effective_transport == Transport::Both {
+            let key = route.sni.as_ref().map_or_else(
+                || route.name.clone(),
+                |sni| format!("{}:{}", route.name, sni),
+            );
+            routes.insert(key, route.forward_to.to_vec());
         }
     }
+
     let fallback = match filter {
         Transport::Tcp => config.fallback_tcp.as_ref(),
         Transport::Udp => config.fallback_udp.as_ref(),
@@ -75,14 +103,6 @@ fn setup_engine(
 ) -> (Arc<ProtocolRegistry>, HashMap<String, Vec<String>>) {
     let mut registry = ProtocolRegistry::new();
 
-    let built_in_map = [
-        ("http", Transport::Tcp),
-        ("https", Transport::Tcp),
-        ("ssh", Transport::Tcp),
-        ("ftp", Transport::Tcp),
-        ("dns", Transport::Udp),
-    ];
-
     if matches!(filter, Transport::Tcp | Transport::Both) {
         #[cfg(feature = "proto-http")]
         registry.register(Box::new(Http));
@@ -99,18 +119,6 @@ fn setup_engine(
     }
 
     for route in &config.protocols {
-        if let Some(&(name, ref required_transport)) =
-            built_in_map.iter().find(|(n, _)| *n == route.name)
-            && route.transport != Transport::Both
-            && route.transport != *required_transport
-        {
-            display::print_error(&format!(
-                "Protocol mismatch: '{}' requires {:?}, but you configured it as {:?}",
-                name, required_transport, route.transport
-            ));
-            process::exit(1);
-        }
-
         if (route.transport == *filter || route.transport == Transport::Both)
             && let Some(ref patterns) = route.patterns
         {
@@ -123,6 +131,7 @@ fn setup_engine(
 
     (Arc::new(registry), get_routes(config, filter))
 }
+
 async fn resolve_addr_from_str(addr_str: &str) -> anyhow::Result<SocketAddr> {
     match lookup_host(addr_str).await {
         Ok(mut addrs) => addrs
