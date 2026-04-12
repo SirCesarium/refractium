@@ -41,6 +41,7 @@ pub struct ServerConfig {
 pub struct TomlRoute {
     #[serde(deserialize_with = "lowercase_string")]
     pub name: String,
+    pub sni: Option<String>,
     pub patterns: Option<Vec<String>>,
     pub forward_to: TomlTarget,
     #[serde(
@@ -163,6 +164,7 @@ impl TomlConfig {
             } else {
                 base.protocols.push(TomlRoute {
                     name,
+                    sni: None,
                     patterns: None,
                     forward_to: target,
                     transport: Transport::Both,
@@ -188,6 +190,7 @@ impl TomlConfig {
                 .into_iter()
                 .map(|r| ProtocolRoute {
                     name: r.name,
+                    sni: r.sni,
                     patterns: r.patterns,
                     transport: r.transport,
                     forward_to: match r.forward_to {

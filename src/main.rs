@@ -24,11 +24,8 @@ use tracing_subscriber::fmt;
 #[cfg(feature = "watch")]
 use notify::{Event, RecursiveMode, Watcher};
 #[cfg(feature = "watch")]
-use std::path::Path;
-#[cfg(feature = "watch")]
 use tokio::sync::mpsc;
 
-#[allow(clippy::too_many_lines)]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     fmt::init();
@@ -55,100 +52,139 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let cancel_token = CancellationToken::new();
-    let token_clone = cancel_token.clone();
+    setup_shutdown_signal(cancel_token.clone());
 
-    let ctrl_c = signal::ctrl_c();
-    let terminate = async {
-        #[cfg(unix)]
-        {
-            use std::io;
+    let refractium = Arc::new(run::setup_refractium(&config, cancel_token.clone()));
 
-            let mut sig = signal::unix::signal(signal::unix::SignalKind::terminate())?;
-            sig.recv().await;
-            Ok::<(), io::Error>(())
-        }
-        #[cfg(not(unix))]
-        {
-            std::future::pending::<()>().await;
-            Ok::<(), io::Error>(())
-        }
-    };
+    // Wait a bit for initial health checks to complete before reporting
+    time::sleep(Duration::from_millis(500)).await;
+    refractium.report_health().await;
 
-    tokio::spawn(async move {
-        tokio::select! {
-            _ = ctrl_c => {
-                display::print_success("Shutdown signal received (Ctrl+C)");
-            }
-            _ = terminate => {
-                display::print_success("Termination signal received");
-            }
-        }
-        token_clone.cancel();
-    });
+    // Setup hot reload and keep the watcher alive
+    let _watcher = setup_hot_reload(&config, &cli, Arc::clone(&refractium));
 
-    let prisma = run::setup_prisma(&config, cancel_token.clone());
-    let prisma_arc = Arc::new(prisma);
-    let prisma_reload = Arc::clone(&prisma_arc);
-    let cli_reload = cli.clone();
-
-    if config.hot_reload {
-        #[cfg(feature = "watch")]
-        {
-            let (tx, mut rx) = mpsc::channel(1);
-            let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
-                if let Ok(event) = res
-                    && event.kind.is_modify()
-                {
-                    let _ = tx.blocking_send(());
-                }
-            })?;
-
-            let config_path = cli_reload.config.clone();
-            if Path::new(&config_path).exists() {
-                watcher.watch(Path::new(&config_path), RecursiveMode::NonRecursive)?;
-
-                let cli_watch = cli_reload.clone();
-                let prisma_watch = Arc::clone(&prisma_reload);
-
-                tokio::spawn(async move {
-                    while rx.recv().await.is_some() {
-                        display::print_success("Changes detected in configuration file");
-                        if let Ok(new_config) = TomlConfig::load_config(&cli_watch) {
-                            let tcp = run::get_routes(&new_config, &Transport::Tcp);
-                            let udp = run::get_routes(&new_config, &Transport::Udp);
-                            prisma_watch.reload_routes(tcp, udp).await;
-                            display::print_success("Configuration hot-reloaded successfully");
-                        }
-                    }
-                });
-            }
-        }
-
-        #[cfg(unix)]
-        {
-            let cli_sig = cli_reload.clone();
-            let prisma_sig = Arc::clone(&prisma_reload);
-            tokio::spawn(async move {
-                if let Ok(mut stream) = signal::unix::signal(signal::unix::SignalKind::hangup()) {
-                    while stream.recv().await.is_some() {
-                        display::print_success("SIGHUP received: Reloading configuration...");
-                        if let Ok(new_config) = TomlConfig::load_config(&cli_sig) {
-                            let tcp = run::get_routes(&new_config, &Transport::Tcp);
-                            let udp = run::get_routes(&new_config, &Transport::Udp);
-                            prisma_sig.reload_routes(tcp, udp).await;
-                            display::print_success("Configuration reloaded via signal");
-                        }
-                    }
-                }
-            });
-        }
-    } else {
-        display::print_success("Hot reload is disabled");
-    }
-
-    if let Err(e) = run::execute_prisma(cli.command, prisma_arc, cancel_token).await {
+    if let Err(e) = run::execute_refractium(cli.command, refractium, cancel_token).await {
         display::print_error(&format!("Engine Error: {e}"));
     }
 
     Ok(())
+}
+
+fn setup_shutdown_signal(token: CancellationToken) {
+    tokio::spawn(async move {
+        let ctrl_c = signal::ctrl_c();
+        let terminate = async {
+            #[cfg(unix)]
+            {
+                use std::io;
+                let mut sig = signal::unix::signal(signal::unix::SignalKind::terminate())?;
+                sig.recv().await;
+                Ok::<(), io::Error>(())
+            }
+            #[cfg(not(unix))]
+            {
+                std::future::pending::<()>().await;
+                Ok::<(), io::Error>(())
+            }
+        };
+
+        tokio::select! {
+            _ = ctrl_c => display::print_success("Shutdown signal received (Ctrl+C)"),
+            _ = terminate => display::print_success("Termination signal received"),
+        }
+        token.cancel();
+    });
+}
+
+#[cfg(feature = "watch")]
+fn setup_hot_reload(
+    config: &ProxyConfig,
+    cli: &Cli,
+    refractium: Arc<Refractium>,
+) -> Option<Box<dyn Watcher>> {
+    if !config.hot_reload {
+        display::print_success("Hot reload is disabled");
+        return None;
+    }
+
+    let watcher = setup_file_watcher(cli, Arc::clone(&refractium));
+    setup_signal_reload(cli, refractium);
+
+    watcher
+}
+
+#[cfg(not(feature = "watch"))]
+fn setup_hot_reload(config: &ProxyConfig, cli: &Cli, refractium: Arc<Refractium>) -> Option<bool> {
+    if !config.hot_reload {
+        display::print_success("Hot reload is disabled");
+        return None;
+    }
+    setup_signal_reload(cli, refractium);
+    None
+}
+
+#[cfg(feature = "watch")]
+fn setup_file_watcher(cli: &Cli, refractium: Arc<Refractium>) -> Option<Box<dyn Watcher>> {
+    let (tx, mut rx) = mpsc::channel(1);
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
+        if res.is_ok_and(|e| e.kind.is_modify() || e.kind.is_create()) {
+            let _ = tx.blocking_send(());
+        }
+    })
+    .ok()?;
+
+    let config_path = cli.config.clone();
+    let path = Path::new(&config_path);
+
+    if path.exists() {
+        watcher.watch(path, RecursiveMode::NonRecursive).ok()?;
+
+        let cli_watch = cli.clone();
+        tokio::spawn(async move {
+            while rx.recv().await.is_some() {
+                // Increased debounce to avoid duplicate reloads
+                time::sleep(Duration::from_millis(500)).await;
+
+                // Clear any extra messages in the channel during sleep
+                while rx.try_recv().is_ok() {}
+
+                display::print_success("Changes detected in configuration file");
+                if let Ok(new_config) = TomlConfig::load_config(&cli_watch) {
+                    let tcp = run::get_routes(&new_config, &Transport::Tcp);
+                    let udp = run::get_routes(&new_config, &Transport::Udp);
+                    refractium.reload_routes(tcp, udp).await;
+                    display::print_success("Configuration hot-reloaded successfully");
+
+                    // Wait for new checks
+                    time::sleep(Duration::from_millis(500)).await;
+                    refractium.report_health().await;
+                }
+            }
+        });
+        return Some(Box::new(watcher));
+    }
+    None
+}
+
+fn setup_signal_reload(cli: &Cli, refractium: Arc<Refractium>) {
+    #[cfg(unix)]
+    {
+        let cli_sig = cli.clone();
+        tokio::spawn(async move {
+            if let Ok(mut stream) = signal::unix::signal(signal::unix::SignalKind::hangup()) {
+                while stream.recv().await.is_some() {
+                    display::print_success("SIGHUP received: Reloading configuration...");
+                    if let Ok(new_config) = TomlConfig::load_config(&cli_sig) {
+                        let tcp = run::get_routes(&new_config, &Transport::Tcp);
+                        let udp = run::get_routes(&new_config, &Transport::Udp);
+                        refractium.reload_routes(tcp, udp).await;
+                        display::print_success("Configuration reloaded via signal");
+
+                        time::sleep(Duration::from_millis(500)).await;
+                        refractium.report_health().await;
+                    }
+                }
+            }
+        });
+    }
 }

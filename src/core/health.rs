@@ -23,23 +23,29 @@ impl HealthMonitor {
 
     /// Checks if a backend target is currently healthy.
     ///
-    /// Returns `true` if the target is healthy or its state is unknown.
+    /// Returns `false` if the target is unhealthy or its state is unknown.
     pub async fn is_healthy(&self, target: &str) -> bool {
         let guard = self.states.read().await;
-        *guard.get(target).unwrap_or(&true)
+        // Default to false to avoid routing to unchecked backends
+        *guard.get(target).unwrap_or(&false)
     }
 
     /// Starts a background task to monitor the health of the given targets.
     pub fn start_monitoring(&self, targets: Vec<String>) {
         let states = Arc::clone(&self.states);
         tokio::spawn(async move {
+            // Immediate check on startup
+            for target in &targets {
+                let alive = Self::check_target(target).await;
+                states.write().await.insert(target.clone(), alive);
+            }
+
             let mut interval = time::interval(Duration::from_secs(10));
             loop {
                 interval.tick().await;
                 for target in &targets {
                     let alive = Self::check_target(target).await;
-                    let mut guard = states.write().await;
-                    guard.insert(target.clone(), alive);
+                    states.write().await.insert(target.clone(), alive);
                 }
             }
         });
@@ -47,7 +53,7 @@ impl HealthMonitor {
 
     async fn check_target(target: &str) -> bool {
         matches!(
-            time::timeout(Duration::from_secs(2), TcpStream::connect(target)).await,
+            time::timeout(Duration::from_secs(1), TcpStream::connect(target)).await,
             Ok(Ok(_))
         )
     }
