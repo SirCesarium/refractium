@@ -8,7 +8,7 @@ COPY Cargo.toml Cargo.lock ./
 
 RUN mkdir src && echo "fn main() {}" > src/main.rs && \
     mkdir benches && touch benches/protocol_bench.rs && \
-    cargo build --release --features cli,logging --bin prisma && \
+    cargo build --release --features cli,logging --bin refractium && \
     rm -rf src/ benches/
 
 COPY . .
@@ -19,6 +19,6 @@ FROM gcr.io/distroless/cc-debian13:nonroot
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/prisma ./prisma
+COPY --from=builder /app/target/release/refractium ./refractium
 
-ENTRYPOINT ["./prisma"]
+ENTRYPOINT ["./refractium"]
