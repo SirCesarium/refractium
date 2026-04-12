@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     refractium.report_health().await;
 
     // Setup hot reload and keep the watcher alive
-    let _watcher = setup_hot_reload(&config, &cli, Arc::clone(&refractium));
+    let _watcher = setup_hot_reload(&config, &cli, &refractium);
 
     if let Err(e) = run::execute_refractium(cli.command, refractium, cancel_token).await {
         display::print_error(&format!("Engine Error: {e}"));
@@ -71,12 +71,13 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn setup_shutdown_signal(token: CancellationToken) {
+    use std::io;
+
     tokio::spawn(async move {
         let ctrl_c = signal::ctrl_c();
         let terminate = async {
             #[cfg(unix)]
             {
-                use std::io;
                 let mut sig = signal::unix::signal(signal::unix::SignalKind::terminate())?;
                 sig.recv().await;
                 Ok::<(), io::Error>(())
@@ -100,21 +101,21 @@ fn setup_shutdown_signal(token: CancellationToken) {
 fn setup_hot_reload(
     config: &ProxyConfig,
     cli: &Cli,
-    refractium: Arc<Refractium>,
+    refractium: &Arc<Refractium>,
 ) -> Option<Box<dyn Watcher>> {
     if !config.hot_reload {
         display::print_success("Hot reload is disabled");
         return None;
     }
 
-    let watcher = setup_file_watcher(cli, Arc::clone(&refractium));
+    let watcher = setup_file_watcher(cli, Arc::clone(refractium));
     setup_signal_reload(cli, refractium);
 
     watcher
 }
 
 #[cfg(not(feature = "watch"))]
-fn setup_hot_reload(config: &ProxyConfig, cli: &Cli, refractium: Arc<Refractium>) -> Option<bool> {
+fn setup_hot_reload(config: &ProxyConfig, cli: &Cli, refractium: &Arc<Refractium>) -> Option<bool> {
     if !config.hot_reload {
         display::print_success("Hot reload is disabled");
         return None;
@@ -166,25 +167,39 @@ fn setup_file_watcher(cli: &Cli, refractium: Arc<Refractium>) -> Option<Box<dyn 
     None
 }
 
-fn setup_signal_reload(cli: &Cli, refractium: Arc<Refractium>) {
+fn setup_signal_reload(cli: &Cli, refractium: &Arc<Refractium>) {
     #[cfg(unix)]
     {
+        use crate::commands::run;
+        use std::time::Duration;
+        use tokio::{
+            signal::unix::{SignalKind, signal},
+            time,
+        };
+
         let cli_sig = cli.clone();
+        let refractium_sig = Arc::clone(refractium);
         tokio::spawn(async move {
-            if let Ok(mut stream) = signal::unix::signal(signal::unix::SignalKind::hangup()) {
+            if let Ok(mut stream) = signal(SignalKind::hangup()) {
                 while stream.recv().await.is_some() {
                     display::print_success("SIGHUP received: Reloading configuration...");
                     if let Ok(new_config) = TomlConfig::load_config(&cli_sig) {
                         let tcp = run::get_routes(&new_config, &Transport::Tcp);
                         let udp = run::get_routes(&new_config, &Transport::Udp);
-                        refractium.reload_routes(tcp, udp).await;
+                        refractium_sig.reload_routes(tcp, udp).await;
                         display::print_success("Configuration reloaded via signal");
 
                         time::sleep(Duration::from_millis(500)).await;
-                        refractium.report_health().await;
+                        refractium_sig.report_health().await;
                     }
                 }
             }
         });
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = cli;
+        let _ = refractium;
     }
 }
