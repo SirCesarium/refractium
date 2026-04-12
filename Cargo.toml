@@ -1,13 +1,13 @@
 [package]
-name = "prisma-rs"
+name = "refractium"
 version = "2.0.0-rc.3"
 edition = "2024"
 authors = ["SirCesarium"]
 description = "Extensible low-level reverse proxy for port multiplexing and protocol-based routing"
 license = "MIT"
-repository = "https://github.com/sircesarium/prisma-rs"
-homepage = "https://github.com/sircesarium/prisma-rs"
-documentation = "https://docs.rs/prisma-rs"
+repository = "https://github.com/sircesarium/refractium"
+homepage = "https://github.com/sircesarium/refractium"
+documentation = "https://docs.rs/refractium"
 readme = "README.md"
 
 [dependencies]
@@ -54,7 +54,7 @@ proto-dns = []
 proto-ftp = []
 
 [[bin]]
-name = "prisma"
+name = "refractium"
 path = "src/main.rs"
 required-features = ["cli", "logging"]
 

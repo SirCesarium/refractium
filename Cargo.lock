@@ -715,27 +715,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prisma-rs"
-version = "2.0.0-rc.3"
-dependencies = [
- "anyhow",
- "bytes",
- "clap",
- "colored",
- "criterion",
- "memchr",
- "notify",
- "rand",
- "serde",
- "thiserror",
- "tokio",
- "tokio-util",
- "toml",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -803,6 +782,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
 dependencies = [
  "bitflags 2.11.0",
+]
+
+[[package]]
+name = "refractium"
+version = "2.0.0-rc.3"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "clap",
+ "colored",
+ "criterion",
+ "memchr",
+ "notify",
+ "rand",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
