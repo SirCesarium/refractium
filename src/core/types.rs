@@ -60,6 +60,8 @@ pub struct ProxyConfig {
     pub peek_timeout_ms: u64,
     /// Maximum number of concurrent connections.
     pub max_connections: usize,
+    /// Maximum number of concurrent connections per IP.
+    pub max_connections_per_ip: usize,
     /// Whether hot reload is enabled.
     pub hot_reload: bool,
     /// List of defined protocol routing rules.

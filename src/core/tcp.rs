@@ -3,12 +3,14 @@ use crate::core::proxy::proxy_tcp;
 use crate::core::router::{RouteResult, Router};
 use crate::errors::{RefractiumError, Result};
 use crate::refractium_debug;
-use std::net::SocketAddr;
+use dashmap::DashMap;
+use std::io;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
-use std::{io, time};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Semaphore;
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 /// A high-performance TCP server that performs protocol identification and routing.
@@ -19,12 +21,32 @@ pub struct TcpServer {
     peek_buffer_size: usize,
     peek_timeout_ms: u64,
     limit: Arc<Semaphore>,
+    max_connections_per_ip: usize,
     cancel_token: CancellationToken,
+    conns_per_ip: Arc<DashMap<IpAddr, usize>>,
+}
+
+struct ConnGuard {
+    ip: IpAddr,
+    map: Arc<DashMap<IpAddr, usize>>,
+}
+
+impl Drop for ConnGuard {
+    fn drop(&mut self) {
+        if let Some(mut entry) = self.map.get_mut(&self.ip) {
+            *entry = entry.saturating_sub(1);
+            if *entry == 0 {
+                drop(entry);
+                self.map.remove(&self.ip);
+            }
+        }
+    }
 }
 
 impl TcpServer {
     /// Creates a new `TcpServer` instance.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         addr: SocketAddr,
         router: Arc<Router>,
@@ -32,6 +54,7 @@ impl TcpServer {
         peek_buffer_size: usize,
         peek_timeout_ms: u64,
         max_connections: usize,
+        max_connections_per_ip: usize,
         cancel_token: CancellationToken,
     ) -> Self {
         Self {
@@ -41,6 +64,8 @@ impl TcpServer {
             peek_buffer_size,
             peek_timeout_ms,
             limit: Arc::new(Semaphore::new(max_connections)),
+            max_connections_per_ip,
+            conns_per_ip: Arc::new(DashMap::new()),
             cancel_token,
         }
     }
@@ -68,14 +93,32 @@ impl TcpServer {
 
     fn accept_connection(&self, res: io::Result<(TcpStream, SocketAddr)>) -> Result<()> {
         let (socket, peer) = res?;
+        let ip = peer.ip();
+
+        let conns_map = Arc::clone(&self.conns_per_ip);
         let router = Arc::clone(&self.router);
         let limit = Arc::clone(&self.limit);
         let peek_size = self.peek_buffer_size;
         let peek_timeout = self.peek_timeout_ms;
+        let max_per_ip = self.max_connections_per_ip;
+
+        {
+            let mut entry = conns_map.entry(ip).or_insert(0);
+            if *entry >= max_per_ip {
+                refractium_debug!("IP {} reached limit, rejecting {}", ip, peer);
+                return Ok(());
+            }
+            *entry += 1;
+        }
 
         tokio::spawn(async move {
+            let _guard = ConnGuard {
+                ip,
+                map: Arc::clone(&conns_map),
+            };
+
             let Ok(_permit) = limit.try_acquire() else {
-                refractium_debug!("Connection limit reached, rejecting {}", peer);
+                refractium_debug!("Global connection limit reached, rejecting {}", peer);
                 return;
             };
 
@@ -83,6 +126,7 @@ impl TcpServer {
                 refractium_debug!("TCP Error at {}: {}", peer, e);
             }
         });
+
         Ok(())
     }
 
@@ -123,24 +167,24 @@ impl TcpServer {
         peek_timeout: u64,
     ) -> Result<RouteResult> {
         let mut buf = vec![0u8; peek_size];
-        let start = time::Instant::now();
-        let timeout = Duration::from_millis(peek_timeout);
+        let duration = Duration::from_millis(peek_timeout);
 
-        loop {
-            socket.readable().await.map_err(RefractiumError::Io)?;
-            let n = socket.peek(&mut buf).await.map_err(RefractiumError::Io)?;
-
-            if n > 0 {
-                // If router returns Some, it means identification is DONE (match, fallback or discard)
-                if let Some(result) = router.route(&buf[..n]).await {
-                    return Ok(result);
+        let identify_fut = async {
+            loop {
+                socket.readable().await?;
+                let n = socket.peek(&mut buf).await?;
+                if n > 0
+                    && let Some(result) = router.route(&buf[..n]).await
+                {
+                    return Ok::<RouteResult, io::Error>(result);
                 }
             }
+        };
 
-            if start.elapsed() >= timeout {
-                // Time's up. Force fallback if available.
-                return Ok(router.route_fallback().await);
-            }
+        match timeout(duration, identify_fut).await {
+            Ok(Ok(res)) => Ok(res),
+            Ok(Err(e)) => Err(RefractiumError::Io(e)),
+            Err(_) => Ok(router.route_fallback().await),
         }
     }
 }

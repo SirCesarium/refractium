@@ -33,6 +33,11 @@ pub struct ServerConfig {
         skip_serializing_if = "is_default_connections"
     )]
     pub max_connections: usize,
+    #[serde(
+        default = "default_max_conns_per_ip",
+        skip_serializing_if = "is_default_max_conns_per_ip"
+    )]
+    pub max_connections_per_ip: usize,
     #[serde(default = "default_hot_reload")]
     pub hot_reload: bool,
 }
@@ -67,6 +72,9 @@ const fn default_peek_timeout() -> u64 {
 const fn default_max_connections() -> usize {
     10000
 }
+const fn default_max_conns_per_ip() -> usize {
+    50
+}
 const fn default_hot_reload() -> bool {
     true
 }
@@ -90,6 +98,11 @@ const fn is_default_connections(sz: &usize) -> bool {
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_default_max_conns_per_ip(sz: &usize) -> bool {
+    *sz == default_max_conns_per_ip()
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_default_transport(t: &Transport) -> bool {
     *t == default_transport()
 }
@@ -103,6 +116,7 @@ impl Default for TomlConfig {
                 peek_buffer_size: default_peek_buffer(),
                 peek_timeout_ms: default_peek_timeout(),
                 max_connections: default_max_connections(),
+                max_connections_per_ip: default_max_conns_per_ip(),
                 hot_reload: default_hot_reload(),
             },
             protocols: vec![],
@@ -172,7 +186,31 @@ impl TomlConfig {
             }
         }
 
+        base.validate();
+
         Ok(base.into_proxy_config())
+    }
+
+    fn validate(&self) {
+        if self.server.peek_timeout_ms > 5000 {
+            tracing::warn!(
+                "SECURITY: peek_timeout_ms is set to {}ms. High values make the server vulnerable to Slowloris attacks.",
+                self.server.peek_timeout_ms
+            );
+        }
+
+        if self.server.max_connections_per_ip > 200 {
+            tracing::warn!(
+                "SECURITY: max_connections_per_ip is very high ({}). Consider lowering it to prevent DoS from single sources.",
+                self.server.max_connections_per_ip
+            );
+        }
+
+        if self.server.max_connections_per_ip >= self.server.max_connections && self.server.max_connections > 0 {
+             tracing::warn!(
+                "SECURITY: max_connections_per_ip is equal or greater than total max_connections. Single IP can saturate the whole server."
+            );
+        }
     }
 
     fn into_proxy_config(self) -> ProxyConfig {
@@ -182,6 +220,7 @@ impl TomlConfig {
             peek_buffer_size: self.server.peek_buffer_size,
             peek_timeout_ms: self.server.peek_timeout_ms,
             max_connections: self.server.max_connections,
+            max_connections_per_ip: self.server.max_connections_per_ip,
             hot_reload: self.server.hot_reload,
             fallback_tcp: self.fallback_tcp,
             fallback_udp: self.fallback_udp,
