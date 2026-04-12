@@ -35,6 +35,7 @@ pub struct Refractium {
     peek_buffer_size: usize,
     peek_timeout_ms: u64,
     max_connections: usize,
+    max_connections_per_ip: usize,
     cancel_token: CancellationToken,
 }
 
@@ -83,6 +84,7 @@ impl Refractium {
             self.peek_buffer_size,
             self.peek_timeout_ms,
             self.max_connections,
+            self.max_connections_per_ip,
             self.cancel_token.clone(),
         )
         .start()
@@ -159,6 +161,7 @@ pub struct RefractiumBuilder {
     peek_size: usize,
     peek_timeout: u64,
     max_connections: usize,
+    max_connections_per_ip: usize,
     cancel_token: Option<CancellationToken>,
 }
 
@@ -174,6 +177,7 @@ impl RefractiumBuilder {
             peek_size: 1024,
             peek_timeout: 3000,
             max_connections: 10000,
+            max_connections_per_ip: 50,
             cancel_token: None,
         }
     }
@@ -213,6 +217,13 @@ impl RefractiumBuilder {
         self
     }
 
+    /// Sets the maximum number of concurrent connections per IP.
+    #[must_use]
+    pub const fn max_connections_per_ip(mut self, max: usize) -> Self {
+        self.max_connections_per_ip = max;
+        self
+    }
+
     /// Sets the cancellation token for the engine.
     #[must_use]
     pub fn cancel_token(mut self, token: CancellationToken) -> Self {
@@ -236,6 +247,7 @@ impl RefractiumBuilder {
             peek_buffer_size: self.peek_size,
             peek_timeout_ms: self.peek_timeout,
             max_connections: self.max_connections,
+            max_connections_per_ip: self.max_connections_per_ip,
             cancel_token: self.cancel_token.unwrap_or_default(),
         }
     }

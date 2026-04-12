@@ -1,0 +1,8 @@
+target/
+.git/
+pentesting/
+.github/
+Dockerfile
+docker-compose.yml
+*.pyc
+__pycache__/

@@ -24,6 +24,7 @@ pub fn setup_refractium(config: &ProxyConfig, cancel_token: CancellationToken) -
         .routes(routes_tcp, routes_udp)
         .peek_config(config.peek_buffer_size, config.peek_timeout_ms)
         .max_connections(config.max_connections)
+        .max_connections_per_ip(config.max_connections_per_ip)
         .cancel_token(cancel_token)
         .build()
 }
