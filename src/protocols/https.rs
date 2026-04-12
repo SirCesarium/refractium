@@ -1,13 +1,13 @@
 //! HTTPS protocol identification logic.
 
 use crate::core::types::Transport;
-use crate::protocols::{PrismaProtocol, ProtocolMatch};
+use crate::protocols::{ProtocolMatch, RefractiumProtocol};
 use std::cmp;
 
 /// HTTPS protocol identification implementation.
 pub struct Https;
 
-impl PrismaProtocol for Https {
+impl RefractiumProtocol for Https {
     fn identify(&self, data: &[u8]) -> Option<ProtocolMatch> {
         if data.len() < 43 || data[0] != 0x16 || data[1] != 0x03 || data[5] != 0x01 {
             return None;

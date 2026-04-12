@@ -10,10 +10,14 @@ mod display;
 use crate::commands::{Cli, Commands, init, run};
 use crate::config::TomlConfig;
 use clap::Parser;
-use prisma_rs::types::Transport;
+use refractium::core::Refractium;
+use refractium::types::{ProxyConfig, Transport};
+use std::path::Path;
 use std::process;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::signal;
+use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::fmt;
 

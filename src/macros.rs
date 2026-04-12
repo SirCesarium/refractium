@@ -1,6 +1,6 @@
 // @swt-disable max-repetition
 
-/// Macro to define a new protocol by implementing the `PrismaProtocol` trait.
+/// Macro to define a new protocol by implementing the `RefractiumProtocol` trait.
 ///
 /// This macro simplifies the creation of simple protocols that identify themselves
 /// by checking a data slice against a condition.
@@ -15,7 +15,7 @@ macro_rules! define_protocol {
         $(#[$meta])*
         pub struct $name;
 
-        impl $crate::protocols::PrismaProtocol for $name {
+        impl $crate::protocols::RefractiumProtocol for $name {
             #[inline]
             fn identify(&self, $data: &[u8]) -> Option<$crate::protocols::ProtocolMatch> {
                 if $body {
@@ -42,7 +42,7 @@ macro_rules! define_protocol {
 ///
 /// Only active when the `logging` feature is enabled.
 #[macro_export]
-macro_rules! prisma_debug {
+macro_rules! refractium_debug {
     ($($arg:tt)*) => {
         {
             #[cfg(feature = "logging")]
@@ -55,7 +55,7 @@ macro_rules! prisma_debug {
 ///
 /// Only active when the `logging` feature is enabled.
 #[macro_export]
-macro_rules! prisma_error {
+macro_rules! refractium_error {
     ($($arg:tt)*) => {
         {
             #[cfg(feature = "logging")]

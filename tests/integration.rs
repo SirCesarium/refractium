@@ -1,6 +1,6 @@
-use prisma_rs::core::Prisma;
-use prisma_rs::protocols::ProtocolRegistry;
-use prisma_rs::protocols::http::Http;
+use refractium::core::Refractium;
+use refractium::protocols::ProtocolRegistry;
+use refractium::protocols::http::Http;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -29,15 +29,15 @@ async fn test_tcp_proxy_flow() {
     let mut routes = HashMap::new();
     routes.insert("Http".to_string(), vec![backend_addr.to_string()]);
 
-    let prisma = Prisma::builder()
+    let refractium = Refractium::builder()
         .registries(Arc::new(registry), Arc::new(ProtocolRegistry::new()))
         .routes(routes, HashMap::new())
         .peek_config(1024, 3000)
         .build();
 
-    let token = prisma.cancel_token();
-    let prisma_task = tokio::spawn(async move {
-        let _ = prisma.run_tcp(proxy_addr).await;
+    let token = refractium.cancel_token();
+    let refractium_task = tokio::spawn(async move {
+        let _ = refractium.run_tcp(proxy_addr).await;
     });
 
     sleep(Duration::from_millis(200)).await;
@@ -52,5 +52,5 @@ async fn test_tcp_proxy_flow() {
     }
 
     token.cancel();
-    let _ = prisma_task.await;
+    let _ = refractium_task.await;
 }

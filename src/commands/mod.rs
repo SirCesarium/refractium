@@ -4,7 +4,7 @@ pub mod run;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Clone)]
-#[command(name = "prisma", version, about)]
+#[command(name = "refractium", version, about)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -15,7 +15,7 @@ pub struct Cli {
     #[arg(short, long, default_value_t = 8080)]
     pub port: u16,
 
-    #[arg(short, long, default_value = "prisma.toml")]
+    #[arg(short, long, default_value = "refractium.toml")]
     pub config: String,
 
     #[arg(long)]
