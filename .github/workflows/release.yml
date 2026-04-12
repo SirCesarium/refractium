@@ -16,16 +16,16 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: prisma
-            release_name: prisma-linux-amd64
+            artifact_name: refractium
+            release_name: refractium-linux-amd64
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: prisma
-            release_name: prisma-linux-arm64
+            artifact_name: refractium
+            release_name: refractium-linux-arm64
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            artifact_name: prisma.exe
-            release_name: prisma-windows-amd64.exe
+            artifact_name: refractium.exe
+            release_name: refractium-windows-amd64.exe
 
     steps:
       - uses: actions/checkout@v6
@@ -85,8 +85,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/sircesarium/prisma-rs:latest
-            ghcr.io/sircesarium/prisma-rs:${{ github.ref_name }}
+            ghcr.io/sircesarium/refractium:latest
+            ghcr.io/sircesarium/refractium:${{ github.ref_name }}
 
       - name: Cargo Publish
         run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
