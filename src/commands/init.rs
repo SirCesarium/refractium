@@ -21,6 +21,7 @@ pub fn execute(path: &str) -> anyhow::Result<()> {
             patterns: None,
             forward_to: TomlTarget::Single("127.0.0.1:3000".to_string()),
             transport: Transport::Both,
+            sni: None,
         }],
         fallback_tcp: None,
         fallback_udp: None,

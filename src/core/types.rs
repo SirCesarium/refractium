@@ -37,6 +37,8 @@ impl ForwardTarget {
 pub struct ProtocolRoute {
     /// Unique identifier for the protocol.
     pub name: String,
+    /// Optional SNI (Server Name Indication) for HTTPS routing.
+    pub sni: Option<String>,
     /// Optional byte patterns to match against the stream.
     pub patterns: Option<Vec<String>>,
     /// The target destination for the traffic.
