@@ -117,9 +117,20 @@ refractium init
 bind = "0.0.0.0"
 port = 8080
 
+# Optional server settings:
+max_connections = 10000
+max_connections_per_ip = 50    # DoS protection
+peek_timeout_ms = 3000   # How long to wait for the first bytes
+peek_buffer_size = 1024  # Max bytes to inspect for identification
+hot_reload = true        # Watch for config changes
+# Traffic that doesn't match any protocol can be sent to a default backend
+fallback_tcp = "127.0.0.1:8080"
+fallback_udp = "127.0.0.1:53"
+
 [[protocols]]
 name = "http"
-forward_to = "127.0.0.1:3000"
+# Round-robin load balancing across multiple backends
+forward_to = ["10.0.0.1:80", "10.0.0.2:80", "10.0.0.3:80"]
 
 [[protocols]]
 name = "ssh"
@@ -170,6 +181,14 @@ Refractium is designed for extreme speed. Protocol identification happens in nan
 _Environment: Intel Core i7-7700 @ 3.60GHz. Run `cargo bench` to verify on your own hardware._
 
 ## Library Usage (Extensibility)
+
+To use `refractium` as a dependency without the CLI overhead, disable default features in your `Cargo.toml`:
+
+```toml
+[dependencies]
+# Minimal installation for library usage
+refractium = { version = "1.0", default-features = false, features = ["logging", "proto-http"] }
+```
 
 Refractium is also a modular engine. You can define complex identification logic in Rust by implementing the `RefractiumProtocol` trait or using the provided macro:
 
