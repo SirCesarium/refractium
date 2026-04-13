@@ -2,7 +2,7 @@ use crate::core::health::HealthMonitor;
 use crate::core::proxy::proxy_tcp;
 use crate::core::router::{RouteResult, Router};
 use crate::errors::{RefractiumError, Result};
-use crate::refractium_debug;
+use crate::{refractium_debug, refractium_error, refractium_trace, refractium_warn};
 use dashmap::DashMap;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
@@ -105,7 +105,7 @@ impl TcpServer {
         {
             let mut entry = conns_map.entry(ip).or_insert(0);
             if *entry >= max_per_ip {
-                refractium_debug!("IP {} reached limit, rejecting {}", ip, peer);
+                refractium_warn!("IP {} reached limit, rejecting {}", ip, peer);
                 return Ok(());
             }
             *entry += 1;
@@ -118,12 +118,20 @@ impl TcpServer {
             };
 
             let Ok(_permit) = limit.try_acquire() else {
-                refractium_debug!("Global connection limit reached, rejecting {}", peer);
+                refractium_warn!("Global connection limit reached, rejecting {}", peer);
                 return;
             };
 
             if let Err(e) = Self::handle_connection(socket, router, peek_size, peek_timeout).await {
-                refractium_debug!("TCP Error at {}: {}", peer, e);
+                match e {
+                    RefractiumError::Io(ref io_err)
+                        if io_err.kind() == io::ErrorKind::ConnectionReset
+                            || io_err.kind() == io::ErrorKind::BrokenPipe =>
+                    {
+                        refractium_trace!("Client {} disconnected abruptly", peer);
+                    }
+                    _ => refractium_error!("TCP Error at {}: {}", peer, e),
+                }
             }
         });
 

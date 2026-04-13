@@ -1,7 +1,7 @@
 use crate::core::health::HealthMonitor;
 use crate::core::router::{RouteResult, Router};
 use crate::errors::{RefractiumError, Result};
-use crate::refractium_debug;
+use crate::{refractium_debug, refractium_info, refractium_trace};
 use bytes::Bytes;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -54,7 +54,7 @@ impl UdpServer {
         loop {
             tokio::select! {
                 () = self.cancel_token.cancelled() => {
-                    refractium_debug!("UDP Server shutting down...");
+                    refractium_info!("UDP Server shutting down...");
                     break;
                 }
                 recv_result = socket.recv_from(&mut buf) => {
@@ -76,7 +76,8 @@ impl UdpServer {
         {
             let sessions_guard = self.sessions.read().await;
             if let Some(proxy_socket) = sessions_guard.get(&peer) {
-                proxy_socket.send_to(&data, peer).await?;
+                proxy_socket.send(&data).await?;
+                refractium_trace!("UDP packet forwarded for session: {}", peer);
                 return Ok(());
             }
         }
@@ -92,15 +93,14 @@ impl UdpServer {
                 addr
             }
             Some(RouteResult::Discarded) | None => {
-                refractium_debug!(
-                    "UDP identification failed or no route. Discarding packet from {}",
-                    peer
-                );
+                refractium_debug!("UDP unknown packet from {}. Discarding.", peer);
                 return Ok(());
             }
         };
 
         let proxy_socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await?);
+        proxy_socket.connect(&target).await?;
+
         let mut sessions_guard = self.sessions.write().await;
         sessions_guard.insert(peer, Arc::clone(&proxy_socket));
         drop(sessions_guard);
@@ -111,11 +111,11 @@ impl UdpServer {
         tokio::spawn(async move {
             tokio::select! {
                 () = token.cancelled() => {
-                    refractium_debug!("Closing UDP session for {} due to shutdown", peer);
+                    refractium_trace!("Closing UDP session for {} due to shutdown", peer);
                 }
-                res = Self::handle_session(data, target, peer, socket, proxy_socket, sessions_task) => {
+                res = Self::handle_session(data, peer, socket, proxy_socket, sessions_task) => {
                     if let Err(e) = res {
-                        refractium_debug!("UDP Session Error: {}", e);
+                        refractium_debug!("UDP Session Error for {}: {}", peer, e);
                     }
                 }
             }
@@ -126,20 +126,19 @@ impl UdpServer {
 
     async fn handle_session(
         initial_data: Bytes,
-        target: String,
         peer: SocketAddr,
         main_sock: Arc<UdpSocket>,
         proxy_sock: Arc<UdpSocket>,
         sessions: Arc<RwLock<HashMap<SocketAddr, Arc<UdpSocket>>>>,
     ) -> Result<()> {
-        proxy_sock.send_to(&initial_data, &target).await?;
+        proxy_sock.send(&initial_data).await?;
         let mut resp_buf = [0u8; 2048];
         let timeout_duration = Duration::from_secs(30);
 
         loop {
             tokio::select! {
-                result = proxy_sock.recv_from(&mut resp_buf) => {
-                    let (n, _) = result.map_err(RefractiumError::Io)?;
+                result = proxy_sock.recv(&mut resp_buf) => {
+                    let n = result.map_err(RefractiumError::Io)?;
                     main_sock.send_to(&resp_buf[..n], &peer).await?;
                 }
                 () = time::sleep(timeout_duration) => {
