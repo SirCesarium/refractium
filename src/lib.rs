@@ -55,5 +55,7 @@ pub mod macros;
 pub mod protocols;
 
 pub use crate::core::types;
+pub use crate::core::types::Transport;
 pub use crate::core::{Refractium, RefractiumBuilder};
 pub use crate::errors::{RefractiumError, Result};
+pub use crate::protocols::ProtocolRegistry;
