@@ -24,8 +24,8 @@ Only the latest stable release receives security updates. Users are encouraged t
 
 | Version | Supported |
 | :--- | :---: |
-| v1.x.x | ✅ |
-| < v1.0.0 | ❌ |
+| >= v1.0.3 | ✅ |
+| < v1.0.3 | ❌ |
 
 ## Mitigation of Network Attacks
 
