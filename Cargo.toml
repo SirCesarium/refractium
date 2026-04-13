@@ -1,6 +1,6 @@
 [package]
 name = "refractium"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2024"
 authors = ["SirCesarium"]
 description = "Extensible low-level reverse proxy for port multiplexing and protocol-based routing"
@@ -17,12 +17,12 @@ memchr = "2.8"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["rt"] }
+serde = { version = "1.0", features = ["derive"] }
 
 # Optional dependencies (CLI & Extras)
 anyhow = { version = "1", optional = true }
 clap = { version = "4.6", features = ["derive"], optional = true }
 colored = { version = "3", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
 toml = { version = "1.1", optional = true }
 tracing = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", optional = true }
@@ -38,7 +38,6 @@ cli = [
     "dep:anyhow",
     "dep:clap",
     "dep:colored",
-    "dep:serde",
     "dep:toml",
     "dep:tracing",
     "dep:tracing-subscriber",
