@@ -1,3 +1,5 @@
+// @swt-disable max-depth
+
 use crate::core::health::HealthMonitor;
 use crate::core::proxy::proxy_tcp;
 use crate::core::router::{RouteResult, Router};

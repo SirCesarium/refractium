@@ -206,8 +206,10 @@ impl TomlConfig {
             );
         }
 
-        if self.server.max_connections_per_ip >= self.server.max_connections && self.server.max_connections > 0 {
-             tracing::warn!(
+        if self.server.max_connections_per_ip >= self.server.max_connections
+            && self.server.max_connections > 0
+        {
+            tracing::warn!(
                 "SECURITY: max_connections_per_ip is equal or greater than total max_connections. Single IP can saturate the whole server."
             );
         }
