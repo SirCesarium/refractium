@@ -38,6 +38,19 @@ macro_rules! define_protocol {
     };
 }
 
+/// Internal trace logging macro.
+///
+/// Only active when the `logging` feature is enabled.
+#[macro_export]
+macro_rules! refractium_trace {
+    ($($arg:tt)*) => {
+        {
+            #[cfg(feature = "logging")]
+            tracing::trace!($($arg)*);
+        }
+    };
+}
+
 /// Internal debug logging macro.
 ///
 /// Only active when the `logging` feature is enabled.
@@ -46,7 +59,33 @@ macro_rules! refractium_debug {
     ($($arg:tt)*) => {
         {
             #[cfg(feature = "logging")]
+            tracing::debug!($($arg)*);
+        }
+    };
+}
+
+/// Internal info logging macro.
+///
+/// Only active when the `logging` feature is enabled.
+#[macro_export]
+macro_rules! refractium_info {
+    ($($arg:tt)*) => {
+        {
+            #[cfg(feature = "logging")]
             tracing::info!($($arg)*);
+        }
+    };
+}
+
+/// Internal warning logging macro.
+///
+/// Only active when the `logging` feature is enabled.
+#[macro_export]
+macro_rules! refractium_warn {
+    ($($arg:tt)*) => {
+        {
+            #[cfg(feature = "logging")]
+            tracing::warn!($($arg)*);
         }
     };
 }
