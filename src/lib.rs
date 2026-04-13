@@ -15,9 +15,7 @@
 //!
 //! ## Quick Start
 //! ```rust,no_run
-//! use refractium::core::Refractium;
-//! use refractium::protocols::ProtocolRegistry;
-//! use refractium::protocols::http::Http;
+//! use refractium::{Refractium, ProtocolRegistry, Http};
 //! use std::collections::HashMap;
 //! use std::sync::Arc;
 //!
@@ -58,4 +56,15 @@ pub use crate::core::types;
 pub use crate::core::types::Transport;
 pub use crate::core::{Refractium, RefractiumBuilder};
 pub use crate::errors::{RefractiumError, Result};
-pub use crate::protocols::ProtocolRegistry;
+pub use crate::protocols::{DynamicProtocol, ProtocolMatch, ProtocolRegistry, RefractiumProtocol};
+
+#[cfg(feature = "proto-dns")]
+pub use crate::protocols::dns::Dns;
+#[cfg(feature = "proto-ftp")]
+pub use crate::protocols::ftp::Ftp;
+#[cfg(feature = "proto-http")]
+pub use crate::protocols::http::Http;
+#[cfg(feature = "proto-https")]
+pub use crate::protocols::https::Https;
+#[cfg(feature = "proto-ssh")]
+pub use crate::protocols::ssh::Ssh;
