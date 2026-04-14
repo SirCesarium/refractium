@@ -43,7 +43,7 @@ macro_rules! define_protocol {
 /// Macro to quickly define a new protocol hook.
 #[macro_export]
 macro_rules! define_hook {
-    ($name:ident, |$dir:ident, $pkt:ident| $body:expr) => {
+    ($name:ident, |$ctx:ident, $dir:ident, $pkt:ident| $body:expr) => {
         #[derive(Clone)]
         pub struct $name;
         impl $crate::protocols::hooks::ProtocolHook for $name {
@@ -52,6 +52,7 @@ macro_rules! define_hook {
             }
             fn on_packet(
                 &self,
+                $ctx: &$crate::protocols::hooks::HookContext,
                 $dir: $crate::protocols::hooks::Direction,
                 $pkt: $crate::bytes::Bytes,
             ) {
