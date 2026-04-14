@@ -50,7 +50,7 @@ macro_rules! define_hook {
             fn name(&self) -> &'static str {
                 stringify!($name)
             }
-            fn on_packet(&self, $dir: $crate::protocols::hooks::Direction, $pkt: bytes::Bytes) {
+            fn on_packet(&self, $dir: $crate::protocols::hooks::Direction, $pkt: $crate::bytes::Bytes) {
                 $body
             }
         }
