@@ -106,24 +106,24 @@ fn setup_engine(
 
     if matches!(filter, Transport::Tcp | Transport::Both) {
         #[cfg(feature = "proto-http")]
-        registry.register(Box::new(Http));
+        registry.register(Arc::new(Http));
         #[cfg(feature = "proto-https")]
-        registry.register(Box::new(Https));
+        registry.register(Arc::new(Https));
         #[cfg(feature = "proto-ssh")]
-        registry.register(Box::new(Ssh));
+        registry.register(Arc::new(Ssh));
         #[cfg(feature = "proto-ftp")]
-        registry.register(Box::new(Ftp));
+        registry.register(Arc::new(Ftp));
     }
     if matches!(filter, Transport::Udp | Transport::Both) {
         #[cfg(feature = "proto-dns")]
-        registry.register(Box::new(Dns));
+        registry.register(Arc::new(Dns));
     }
 
     for route in &config.protocols {
         if (route.transport == *filter || route.transport == Transport::Both)
             && let Some(ref patterns) = route.patterns
         {
-            registry.register(Box::new(DynamicProtocol {
+            registry.register(Arc::new(DynamicProtocol {
                 name: route.name.clone(),
                 patterns: patterns.clone(),
             }));

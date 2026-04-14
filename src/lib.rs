@@ -22,7 +22,7 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let mut registry = ProtocolRegistry::new();
-//!     registry.register(Box::new(Http));
+//!     registry.register(Arc::new(Http));
 //!
 //!     let mut routes = HashMap::new();
 //!     routes.insert("Http".to_string(), vec!["127.0.0.1:8080".to_string()]);

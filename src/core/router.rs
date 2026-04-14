@@ -1,15 +1,15 @@
 use crate::core::balancer::LoadBalancer;
 use crate::core::health::HealthMonitor;
-use crate::protocols::ProtocolRegistry;
+use crate::protocols::{ProtocolRegistry, RefractiumProtocol};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Result of a routing attempt.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum RouteResult {
     /// A matching protocol was found and routed to a backend.
-    Matched(String, String), // Protocol, Address
+    Matched(String, String, Arc<dyn RefractiumProtocol>), // Protocol, Address, Implementation
     /// No matching protocol was found, but traffic was routed to the fallback.
     Fallback(String), // Address
     /// Protocol was identified but no route or healthy fallback is available.
@@ -37,7 +37,7 @@ impl Router {
         if let Some(m) = self.registry.probe(data) {
             let metadata = m.metadata.as_deref();
             if let Some(addr) = balancer_guard.next_available(&m.name, metadata).await {
-                Some(RouteResult::Matched(m.name, addr.clone()))
+                Some(RouteResult::Matched(m.name, addr.clone(), m.implementation))
             } else if let Some(addr) = balancer_guard.next_available("fallback", None).await {
                 Some(RouteResult::Fallback(addr.clone()))
             } else {
