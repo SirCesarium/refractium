@@ -58,6 +58,7 @@ pub use crate::core::{Refractium, RefractiumBuilder};
 pub use crate::errors::{RefractiumError, Result};
 pub use crate::protocols::{DynamicProtocol, ProtocolMatch, ProtocolRegistry, RefractiumProtocol};
 pub use dyn_clone;
+pub use bytes;
 
 #[cfg(feature = "proto-dns")]
 pub use crate::protocols::dns::Dns;
