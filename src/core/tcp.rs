@@ -164,6 +164,8 @@ impl TcpServer {
                     backend,
                     #[cfg(feature = "hooks")]
                     hooks,
+                    #[cfg(feature = "hooks")]
+                    proto,
                 )
                 .await
                 .map_err(RefractiumError::Io)
@@ -176,6 +178,8 @@ impl TcpServer {
                     backend,
                     #[cfg(feature = "hooks")]
                     Vec::new(),
+                    #[cfg(feature = "hooks")]
+                    "fallback".to_string(),
                 )
                 .await
                 .map_err(RefractiumError::Io)

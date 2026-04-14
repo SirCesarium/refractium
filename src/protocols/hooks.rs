@@ -2,6 +2,7 @@
 
 use bytes::Bytes;
 use std::io;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -22,7 +23,18 @@ pub trait ProtocolHook: Send + Sync + dyn_clone::DynClone {
     /// Returns name.
     fn name(&self) -> &'static str;
     /// Process packet.
-    fn on_packet(&self, direction: Direction, packet: Bytes);
+    fn on_packet(&self, context: &HookContext, direction: Direction, packet: Bytes);
+}
+
+/// Contextual information for the current connection.
+#[derive(Debug, Clone)]
+pub struct HookContext {
+    /// The address of the remote client.
+    pub client_addr: SocketAddr,
+    /// The identified protocol name.
+    pub protocol: String,
+    /// Unique session identifier.
+    pub session_id: u64,
 }
 
 dyn_clone::clone_trait_object!(ProtocolHook);
@@ -36,13 +48,19 @@ pub struct HookedStream<S> {
 
 impl<S> HookedStream<S> {
     /// New hooked stream.
-    pub fn new(inner: S, direction: Direction, hooks: Vec<Arc<dyn ProtocolHook>>) -> Self {
+    pub fn new(
+        inner: S,
+        direction: Direction,
+        hooks: Vec<Arc<dyn ProtocolHook>>,
+        context: HookContext,
+    ) -> Self {
         let (tx, mut rx) = mpsc::channel::<(Direction, Bytes)>(1024);
+        let context = Arc::new(context);
 
         tokio::spawn(async move {
             while let Some((dir, pkt)) = rx.recv().await {
                 for hook in &hooks {
-                    hook.on_packet(dir, pkt.clone());
+                    hook.on_packet(&context, dir, pkt.clone());
                 }
             }
         });

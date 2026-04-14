@@ -1,3 +1,4 @@
+use crate::protocols::hooks::HookContext;
 use tokio::io::{self, copy_bidirectional};
 use tokio::net::TcpStream;
 
@@ -21,6 +22,7 @@ pub async fn proxy_tcp(
     mut client: TcpStream,
     mut backend: TcpStream,
     #[cfg(feature = "hooks")] hooks: Vec<Arc<dyn ProtocolHook>>,
+    #[cfg(feature = "hooks")] protocol_name: String,
 ) -> io::Result<()> {
     client.set_nodelay(true)?;
     backend.set_nodelay(true)?;
@@ -28,8 +30,16 @@ pub async fn proxy_tcp(
     #[cfg(feature = "hooks")]
     {
         if !hooks.is_empty() {
-            let mut hooked_client = HookedStream::new(client, Direction::Inbound, hooks.clone());
-            let mut hooked_backend = HookedStream::new(backend, Direction::Outbound, hooks);
+            let client_addr = client.peer_addr()?;
+            let ctx = HookContext {
+                client_addr,
+                protocol: protocol_name,
+                session_id: rand::random::<u64>(),
+            };
+
+            let mut hooked_client =
+                HookedStream::new(client, Direction::Inbound, hooks.clone(), ctx.clone());
+            let mut hooked_backend = HookedStream::new(backend, Direction::Outbound, hooks, ctx);
             copy_bidirectional(&mut hooked_client, &mut hooked_backend).await?;
             return Ok(());
         }
