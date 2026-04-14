@@ -44,6 +44,7 @@ macro_rules! define_protocol {
 #[macro_export]
 macro_rules! define_hook {
     ($name:ident, |$dir:ident, $pkt:ident| $body:expr) => {
+        #[derive(Clone)]
         pub struct $name;
         impl $crate::protocols::hooks::ProtocolHook for $name {
             fn name(&self) -> &'static str {
