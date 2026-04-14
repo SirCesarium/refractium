@@ -1,3 +1,4 @@
+#[cfg(feature = "hooks")]
 use crate::protocols::hooks::HookContext;
 use tokio::io::{self, copy_bidirectional};
 use tokio::net::TcpStream;
