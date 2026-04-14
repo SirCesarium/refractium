@@ -50,7 +50,11 @@ macro_rules! define_hook {
             fn name(&self) -> &'static str {
                 stringify!($name)
             }
-            fn on_packet(&self, $dir: $crate::protocols::hooks::Direction, $pkt: $crate::bytes::Bytes) {
+            fn on_packet(
+                &self,
+                $dir: $crate::protocols::hooks::Direction,
+                $pkt: $crate::bytes::Bytes,
+            ) {
                 $body
             }
         }
@@ -65,28 +69,29 @@ macro_rules! define_hook {
 macro_rules! hook_protocol {
     (wrapper: $wrapper_name:ident, proto: $proto_type:ty, hooks: [$($hook:expr),*]) => {
         $crate::hook_protocol!(@internal
-            wrapper: $wrapper_name,
-            proto_type: $proto_type,
-            proto_init: $proto_type::new(),
-            hooks: [$($hook),*]
+            _w: $wrapper_name,
+            _p_ty: $proto_type,
+            _p_init: <$proto_type>::new(),
+            _h: [$($hook),*]
         )
     };
 
     (wrapper: $wrapper_name:ident, proto_type: $proto_type:ty, proto_init: $proto_init:expr, hooks: [$($hook:expr),*]) => {
         $crate::hook_protocol!(@internal
-            wrapper: $wrapper_name,
-            proto_type: $proto_type,
-            proto_init: $proto_init,
-            hooks: [$($hook),*]
+            _w: $wrapper_name,
+            _p_ty: $proto_type,
+            _p_init: $proto_init,
+            _h: [$($hook),*]
         )
     };
 
-    (@internal wrapper: $wrapper_name:ident, proto_type: $proto_type:ty, proto_init: $proto_init:expr, hooks: [$($hook:expr),*]) => {        #[derive(Clone)]  
+    (@internal _w: $wrapper_name:ident, _p_ty: $proto_type:ty, _p_init: $proto_init:expr, _h: [$($hook:expr),*]) => {
+        #[derive(Clone)]
         pub struct $wrapper_name {
             inner: $proto_type,
             hooks: Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>>,
         }
-  
+
         impl $wrapper_name {
             pub fn new() -> Self {
                 Self {
@@ -94,7 +99,7 @@ macro_rules! hook_protocol {
                     hooks: vec![$(std::sync::Arc::new($hook)),*],
                 }
             }
-  
+
             pub fn with_hooks(hooks: Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>>) -> Self {
                 Self {
                     inner: $proto_init,
@@ -102,7 +107,7 @@ macro_rules! hook_protocol {
                 }
             }
         }
-  
+
         impl $crate::protocols::RefractiumProtocol for $wrapper_name {
             fn name(&self) -> &str {
                 $crate::protocols::RefractiumProtocol::name(&self.inner)
