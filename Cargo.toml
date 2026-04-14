@@ -1,6 +1,6 @@
 [package]
 name = "refractium"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2024"
 authors = ["SirCesarium"]
 description = "Extensible low-level reverse proxy for port multiplexing and protocol-based routing"
