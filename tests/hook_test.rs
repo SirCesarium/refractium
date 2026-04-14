@@ -73,15 +73,13 @@ async fn test_hook_isolation() {
 
     hook_protocol!(
         wrapper: HookedHttp,
-        proto_type: Http,
-        proto_init: Http,
+        proto: Http,
         hooks: []
     );
 
     hook_protocol!(
         wrapper: HookedFtp,
-        proto_type: Ftp,
-        proto_init: Ftp,
+        proto: Ftp,
         hooks: []
     );
 
