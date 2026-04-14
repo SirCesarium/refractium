@@ -5,7 +5,7 @@ use refractium::core::Refractium;
 use refractium::hook_protocol;
 use refractium::protocols::ProtocolRegistry;
 use refractium::protocols::ftp::Ftp;
-use refractium::protocols::hooks::{Direction, ProtocolHook};
+use refractium::protocols::hooks::{Direction, HookContext, ProtocolHook};
 use refractium::protocols::http::Http;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -28,7 +28,7 @@ impl ProtocolHook for HttpHook {
     fn name(&self) -> &'static str {
         "http_hook"
     }
-    fn on_packet(&self, _direction: Direction, _packet: Bytes) {
+    fn on_packet(&self, _context: &HookContext, _direction: Direction, _packet: Bytes) {
         let mut n = self.counter.lock().unwrap();
         *n += 1;
     }
@@ -43,12 +43,13 @@ impl ProtocolHook for FtpHook {
     fn name(&self) -> &'static str {
         "ftp_hook"
     }
-    fn on_packet(&self, _direction: Direction, _packet: Bytes) {
+    fn on_packet(&self, _context: &HookContext, _direction: Direction, _packet: Bytes) {
         let mut n = self.counter.lock().unwrap();
         *n += 1;
     }
 }
 
+#[cfg(feature = "hooks")]
 #[tokio::test]
 async fn test_hook_isolation() {
     let backend_addr: SocketAddr = "127.0.0.1:9095".parse().unwrap();
