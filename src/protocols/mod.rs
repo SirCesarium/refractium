@@ -22,25 +22,48 @@ pub mod https;
 #[cfg(feature = "proto-ssh")]
 pub mod ssh;
 
+/// Hook system for protocol interception.
+#[cfg(feature = "hooks")]
+pub mod hooks;
+
+#[cfg(feature = "hooks")]
+use std::sync::Arc;
+#[cfg(not(feature = "hooks"))]
+use std::sync::Arc;
+
+#[cfg(feature = "hooks")]
+use crate::protocols::hooks::ProtocolHook;
+
 /// A match result for a protocol identification attempt.
 pub struct ProtocolMatch {
     /// The name of the identified protocol.
     pub name: String,
     /// Optional metadata extracted during identification (e.g., SNI hostname).
     pub metadata: Option<String>,
+    /// The protocol implementation that matched.
+    pub implementation: Arc<dyn RefractiumProtocol>,
 }
 
 /// A trait for protocol identification logic.
-pub trait RefractiumProtocol: Send + Sync {
+pub trait RefractiumProtocol: Send + Sync + dyn_clone::DynClone {
     /// Returns the name of the protocol.
     fn name(&self) -> &str;
     /// Identifies the protocol based on the provided data.
-    fn identify(&self, data: &[u8]) -> Option<ProtocolMatch>;
+    fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch>;
     /// Returns the transport type of the protocol.
     fn transport(&self) -> Transport;
+
+    /// Returns the registered hooks for this protocol.
+    #[cfg(feature = "hooks")]
+    fn hooks(&self) -> Vec<Arc<dyn ProtocolHook>> {
+        Vec::new()
+    }
 }
 
+dyn_clone::clone_trait_object!(RefractiumProtocol);
+
 /// A simple protocol identification implementation based on string patterns.
+#[derive(Clone)]
 pub struct DynamicProtocol {
     /// The name of the protocol.
     pub name: String,
@@ -49,7 +72,7 @@ pub struct DynamicProtocol {
 }
 
 impl RefractiumProtocol for DynamicProtocol {
-    fn identify(&self, data: &[u8]) -> Option<ProtocolMatch> {
+    fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch> {
         let matched = self
             .patterns
             .iter()
@@ -59,6 +82,7 @@ impl RefractiumProtocol for DynamicProtocol {
             return Some(ProtocolMatch {
                 name: self.name.to_lowercase(),
                 metadata: None,
+                implementation: self,
             });
         }
         None
@@ -75,7 +99,7 @@ impl RefractiumProtocol for DynamicProtocol {
 
 /// A registry for storing and querying protocol identification logic.
 pub struct ProtocolRegistry {
-    protocols: Vec<Box<dyn RefractiumProtocol>>,
+    protocols: Vec<Arc<dyn RefractiumProtocol>>,
 }
 
 impl Default for ProtocolRegistry {
@@ -94,7 +118,7 @@ impl ProtocolRegistry {
     }
 
     /// Registers a new protocol identification logic.
-    pub fn register(&mut self, proto: Box<dyn RefractiumProtocol>) {
+    pub fn register(&mut self, proto: Arc<dyn RefractiumProtocol>) {
         self.protocols.push(proto);
     }
 
@@ -104,7 +128,7 @@ impl ProtocolRegistry {
     #[must_use]
     pub fn probe(&self, data: &[u8]) -> Option<ProtocolMatch> {
         for proto in &self.protocols {
-            if let Some(m) = proto.identify(data) {
+            if let Some(m) = Arc::clone(proto).identify(data) {
                 return Some(m);
             }
         }
