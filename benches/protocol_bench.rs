@@ -11,14 +11,16 @@ use refractium::protocols::http::Http;
 use refractium::protocols::https::Https;
 use refractium::protocols::ssh::Ssh;
 
+use std::sync::Arc;
+
 fn setup_full_registry() -> ProtocolRegistry {
     let mut registry = ProtocolRegistry::new();
-    registry.register(Box::new(Http));
-    registry.register(Box::new(Https));
-    registry.register(Box::new(Ssh));
-    registry.register(Box::new(Ftp));
-    registry.register(Box::new(Dns));
-    registry.register(Box::new(DynamicProtocol {
+    registry.register(Arc::new(Http));
+    registry.register(Arc::new(Https));
+    registry.register(Arc::new(Ssh));
+    registry.register(Arc::new(Ftp));
+    registry.register(Arc::new(Dns));
+    registry.register(Arc::new(DynamicProtocol {
         name: "Minecraft".to_string(),
         patterns: vec![
             "\x00\x04\x03\x01\x07".to_string(),
