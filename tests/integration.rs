@@ -25,7 +25,7 @@ async fn test_tcp_proxy_flow() {
     });
 
     let mut registry = ProtocolRegistry::new();
-    registry.register(Box::new(Http));
+    registry.register(Arc::new(Http));
     let mut routes = HashMap::new();
     routes.insert("Http".to_string(), vec![backend_addr.to_string()]);
 

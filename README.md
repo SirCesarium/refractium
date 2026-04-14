@@ -26,6 +26,10 @@
 - **Hot Reload**
   - Update your routing table without dropping active connections or restarting the server.
 
+- **Packet Interception (Hooks)**
+  - Intercept raw packets in real-time without blocking the main proxy loop.
+  - Pluggable architecture: implement the `ProtocolHook` trait to audit, log, or mirror traffic.
+
 - **Graceful Shutdown**
   - Built-in support for cancellation tokens to ensure clean termination.
 
@@ -63,11 +67,12 @@ cargo install refractium
 
 #### Cargo Features:
 
-- `default`/`full` (contains: `cli`, `logging`, `protocols`, `watch` features)
+- `default`/`full` (contains: `cli`, `logging`, `protocols`, `watch`, `hooks` features)
 - `protocols` (contains: `proto-http`, `proto-https`, `proto-ssh`, `proto-dns`, `proto-ftp` features)
 - `cli`: Includes the command line interface modules.
-- `logging`: Includes `tracing` and `tracing-subscriber` libraries
+- `logging`: Includes `tracing` and `tracing-subscriber` libraries.
 - `watch`: Includes hot-reload functions.
+- `hooks`: Enables the protocol interception system.
 
 ## Command Reference
 
@@ -206,7 +211,7 @@ define_protocol!(
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut registry = ProtocolRegistry::new();
-    registry.register(Box::new(MyProto));
+    registry.register(Arc::new(MyProto));
 
     let refractium = Refractium::builder()
         .registries(Arc::new(registry), Arc::new(ProtocolRegistry::new()))
@@ -216,6 +221,42 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 ```
+
+### Extending with Hooks (Packet Interception)
+
+Refractium allows you to intercept raw traffic in real-time. Hooks are executed in separate tasks, ensuring that your logic doesn't slow down the main proxy.
+
+You can quickly create and attach hooks using the provided macros:
+
+```rust
+use refractium::{define_hook, hook_protocol, Http, ProtocolRegistry};
+use std::sync::Arc;
+
+// 1. Define a hook using a closure
+define_hook!(MyPacketLogger, |direction, packet| {
+    println!("Intercepted {:?} packet: {} bytes", direction, packet.len());
+});
+
+// 2. Wrap an existing protocol (like Http) with one or more hooks
+// This automatically generates a wrapper to bypass the Orphan Rule.
+hook_protocol!(
+    wrapper: HookedHttp, 
+    proto: Http, 
+    hooks: [MyPacketLogger]
+);
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let mut registry = ProtocolRegistry::new();
+    
+    // 3. Register your hooked protocol
+    registry.register(Arc::new(HookedHttp::new()));
+
+    // ... build and run Refractium
+}
+```
+
+This approach is **non-blocking**, **thread-safe**, and works with any built-in or custom protocol.
 
 ## Reliability
 
