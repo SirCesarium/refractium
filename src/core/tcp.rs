@@ -156,6 +156,9 @@ impl TcpServer {
                 #[cfg(feature = "hooks")]
                 let hooks = implementation.hooks();
 
+                #[cfg(not(feature = "hooks"))]
+                let _ = implementation;
+
                 proxy_tcp(
                     socket,
                     backend,
