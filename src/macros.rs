@@ -61,69 +61,65 @@ macro_rules! define_hook {
     };
 }
 
-/// Macro to wrap an existing protocol with one or more hooks.
-///
-/// This implements the Wrapper Pattern automatically, delegating identification
-/// to the inner protocol but overriding the hooks.
+/// Automatically generated wrapper to intercept protocol traffic.
 #[macro_export]
 macro_rules! hook_protocol {
-    (wrapper: $wrapper_name:ident, proto: $proto_type:ty, hooks: [$($hook:expr),*]) => {
-        $crate::hook_protocol!(@internal
-            _w: $wrapper_name,
-            _p_ty: $proto_type,
-            _p_init: <$proto_type>::new(),
-            _h: [$($hook),*]
-        )
-    };
-
-    (wrapper: $wrapper_name:ident, proto_type: $proto_type:ty, proto_init: $proto_init:expr, hooks: [$($hook:expr),*]) => {
-        $crate::hook_protocol!(@internal
-            _w: $wrapper_name,
-            _p_ty: $proto_type,
-            _p_init: $proto_init,
-            _h: [$($hook),*]
-        )
-    };
-
-    (@internal _w: $wrapper_name:ident, _p_ty: $proto_type:ty, _p_init: $proto_init:expr, _h: [$($hook:expr),*]) => {
+    (
+        wrapper: $wrapper:ident,
+        proto: $proto:ident,
+        hooks: [$($hook:expr),* $(,)?]
+    ) => {
         #[derive(Clone)]
-        pub struct $wrapper_name {
-            inner: $proto_type,
+        pub struct $wrapper {
+            inner: $proto,
             hooks: Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>>,
         }
 
-        impl $wrapper_name {
+        impl $wrapper {
             pub fn new() -> Self {
                 Self {
-                    inner: $proto_init,
+                    inner: $proto,
                     hooks: vec![$(std::sync::Arc::new($hook)),*],
                 }
             }
 
             pub fn with_hooks(hooks: Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>>) -> Self {
                 Self {
-                    inner: $proto_init,
+                    inner: $proto,
                     hooks,
                 }
             }
         }
 
-        impl $crate::protocols::RefractiumProtocol for $wrapper_name {
-            fn name(&self) -> &str {
-                $crate::protocols::RefractiumProtocol::name(&self.inner)
-            }
-            fn transport(&self) -> $crate::core::types::Transport {
-                $crate::protocols::RefractiumProtocol::transport(&self.inner)
-            }
+        impl $crate::protocols::RefractiumProtocol for $wrapper {
+            #[inline]
             fn identify(self: std::sync::Arc<Self>, data: &[u8]) -> Option<$crate::protocols::ProtocolMatch> {
-                if let Some(mut m) = std::sync::Arc::new(self.inner.clone()).identify(data) {
-                    m.implementation = self;
-                    return Some(m);
-                }
-                None
+                let inner_proto = std::sync::Arc::new(self.inner.clone());
+                inner_proto.identify(data).map(|m| {
+                    $crate::protocols::ProtocolMatch {
+                        name: m.name,
+                        metadata: m.metadata,
+                        implementation: self,
+                    }
+                })
             }
+
+            fn name(&self) -> &'static str {
+                stringify!($proto)
+            }
+
+            fn transport(&self) -> $crate::core::types::Transport {
+                self.inner.transport()
+            }
+
             fn hooks(&self) -> Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>> {
                 self.hooks.clone()
+            }
+        }
+
+        impl Default for $wrapper {
+            fn default() -> Self {
+                Self::new()
             }
         }
     };
