@@ -4,10 +4,13 @@ use crate::core::types::Transport;
 use crate::protocols::{ProtocolMatch, RefractiumProtocol};
 
 /// DNS protocol identification implementation.
+#[derive(Clone)]
 pub struct Dns;
 
+use std::sync::Arc;
+
 impl RefractiumProtocol for Dns {
-    fn identify(&self, data: &[u8]) -> Option<ProtocolMatch> {
+    fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch> {
         if data.len() < 12 {
             return None;
         }
@@ -20,6 +23,7 @@ impl RefractiumProtocol for Dns {
             return Some(ProtocolMatch {
                 name: "dns".to_string(),
                 metadata: None,
+                implementation: self,
             });
         }
         None

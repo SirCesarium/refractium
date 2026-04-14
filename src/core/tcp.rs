@@ -149,19 +149,33 @@ impl TcpServer {
         let route = Self::identify_protocol(&socket, &router, peek_size, peek_timeout).await?;
 
         match route {
-            RouteResult::Matched(proto, addr) => {
+            RouteResult::Matched(proto, addr, implementation) => {
                 refractium_debug!("Route matched: {} -> {}", proto, addr);
                 let backend = TcpStream::connect(&addr).await?;
-                proxy_tcp(socket, backend)
-                    .await
-                    .map_err(RefractiumError::Io)
+
+                #[cfg(feature = "hooks")]
+                let hooks = implementation.hooks();
+
+                proxy_tcp(
+                    socket,
+                    backend,
+                    #[cfg(feature = "hooks")]
+                    hooks,
+                )
+                .await
+                .map_err(RefractiumError::Io)
             }
             RouteResult::Fallback(addr) => {
                 refractium_debug!("No protocol match, routing to fallback -> {}", addr);
                 let backend = TcpStream::connect(&addr).await?;
-                proxy_tcp(socket, backend)
-                    .await
-                    .map_err(RefractiumError::Io)
+                proxy_tcp(
+                    socket,
+                    backend,
+                    #[cfg(feature = "hooks")]
+                    Vec::new(),
+                )
+                .await
+                .map_err(RefractiumError::Io)
             }
             RouteResult::Discarded => {
                 refractium_debug!("No route found and no healthy fallback. Dropping connection.");

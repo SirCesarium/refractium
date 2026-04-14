@@ -84,7 +84,7 @@ impl UdpServer {
 
         let route_opt = self.router.route(&data).await;
         let target = match route_opt {
-            Some(RouteResult::Matched(proto, addr)) => {
+            Some(RouteResult::Matched(proto, addr, _)) => {
                 refractium_debug!("UDP Route matched: {} -> {}", proto, addr);
                 addr
             }

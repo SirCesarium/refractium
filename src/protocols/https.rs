@@ -5,10 +5,13 @@ use crate::protocols::{ProtocolMatch, RefractiumProtocol};
 use std::cmp;
 
 /// HTTPS protocol identification implementation.
+#[derive(Clone)]
 pub struct Https;
 
+use std::sync::Arc;
+
 impl RefractiumProtocol for Https {
-    fn identify(&self, data: &[u8]) -> Option<ProtocolMatch> {
+    fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch> {
         if data.len() < 43 || data[0] != 0x16 || data[1] != 0x03 || data[5] != 0x01 {
             return None;
         }
@@ -51,6 +54,7 @@ impl RefractiumProtocol for Https {
                 return Some(ProtocolMatch {
                     name: "https".to_string(),
                     metadata: Some(sni),
+                    implementation: self,
                 });
             }
             pos += ext_len;
@@ -59,6 +63,7 @@ impl RefractiumProtocol for Https {
         Some(ProtocolMatch {
             name: "https".to_string(),
             metadata: None,
+            implementation: self,
         })
     }
 
@@ -101,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_https_identify_invalid() {
-        let proto = Https;
+        let proto = Arc::new(Https);
         assert!(proto.identify(b"GET / HTTP/1.1").is_none());
     }
 
