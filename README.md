@@ -233,22 +233,28 @@ use refractium::{define_hook, hook_protocol, Http, ProtocolRegistry};
 use std::sync::Arc;
 
 // 1. Define a hook using a closure
-define_hook!(MyPacketLogger, |direction, packet| {
-    println!("Intercepted {:?} packet: {} bytes", direction, packet.len());
+define_hook!(MyPacketLogger, |ctx, direction, packet| {
+    println!(
+        "[{}] Intercepted {:?} packet from {}: {} bytes",
+        ctx.session_id,
+        direction,
+        ctx.client_addr,
+        packet.len()
+    );
 });
 
 // 2. Wrap an existing protocol (like Http) with one or more hooks
 // This automatically generates a wrapper to bypass the Orphan Rule.
 hook_protocol!(
-    wrapper: HookedHttp, 
-    proto: Http, 
+    wrapper: HookedHttp,
+    proto: Http,
     hooks: [MyPacketLogger]
 );
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut registry = ProtocolRegistry::new();
-    
+
     // 3. Register your hooked protocol
     registry.register(Arc::new(HookedHttp::new()));
 
