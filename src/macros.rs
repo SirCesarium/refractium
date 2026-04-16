@@ -30,8 +30,9 @@ macro_rules! define_protocol {
                 None
             }
 
-            fn name(&self) -> &'static str {
-                stringify!($name)
+            fn name(&self) -> String {
+                use heck::ToSnakeCase;
+                stringify!($name).to_snake_case()
             }
 
             fn transport(&self) -> $crate::core::types::Transport {
@@ -106,8 +107,9 @@ macro_rules! hook_protocol {
                 })
             }
 
-            fn name(&self) -> &'static str {
-                stringify!($proto)
+            fn name(&self) -> String {
+                use heck::ToSnakeCase;
+                stringify!($proto).to_snake_case()
             }
 
             fn transport(&self) -> $crate::core::types::Transport {
@@ -115,6 +117,7 @@ macro_rules! hook_protocol {
                 self.inner.transport()
             }
 
+            #[cfg(feature = "hooks")]
             fn hooks(&self) -> Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>> {
                 self.hooks.clone()
             }

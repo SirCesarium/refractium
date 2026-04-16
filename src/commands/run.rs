@@ -117,8 +117,8 @@ fn add_fallback(config: &ProxyConfig, filter: Transport, routes: &mut Vec<Protoc
 #[derive(Clone)]
 struct FallbackProtocol;
 impl RefractiumProtocol for FallbackProtocol {
-    fn name(&self) -> &'static str {
-        "fallback"
+    fn name(&self) -> String {
+        "fallback".to_string()
     }
     fn identify(self: Arc<Self>, _data: &[u8]) -> Option<ProtocolMatch> {
         None

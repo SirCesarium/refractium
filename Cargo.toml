@@ -70,6 +70,11 @@ rand = "0.10"
 name = "protocol_bench"
 harness = false
 
+[[test]]
+name = "hook_test"
+path = "tests/hook_test.rs"
+required-features = ["hooks"]
+
 [profile.release]
 opt-level = 3
 lto = true
