@@ -18,7 +18,7 @@
 
 1.  **Library-First Design**: While Refractium provides a powerful CLI, it is fundamentally a library. All CLI features are built on top of the same public API documented here.
 2.  **Zero-Overhead Abstractions**: The engine is built using asynchronous Rust (Tokio), ensuring that protocol identification does not block the data path.
-3.  **Extensible Routing**: Every aspect of the routing table can be updated programmatically without restarting the server.
+3.  **Extensible Routing**: Every aspect of the routing table can be updated programmatically in real-time without restarting the server.
 4.  **Fail-Safe Operations**: Built-in health monitoring and fallback routes prevent downtime when individual backends fail.
 
 ## Getting Started Example
