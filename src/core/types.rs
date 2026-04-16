@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+#[cfg(feature = "hooks")]
+use crate::protocols::hooks::ProtocolHook;
 
 /// Supported transport protocols for proxying.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Transport {
     /// Use Transmission Control Protocol.
@@ -11,6 +15,34 @@ pub enum Transport {
     /// Support both TCP and UDP protocols.
     Both,
 }
+
+/// A match result for a protocol identification attempt.
+pub struct ProtocolMatch {
+    /// The name of the identified protocol.
+    pub name: String,
+    /// Optional metadata extracted during identification (e.g., SNI hostname).
+    pub metadata: Option<String>,
+    /// The protocol implementation that matched.
+    pub implementation: Arc<dyn RefractiumProtocol>,
+}
+
+/// A trait for protocol identification logic.
+pub trait RefractiumProtocol: Send + Sync + dyn_clone::DynClone {
+    /// Returns the name of the protocol.
+    fn name(&self) -> &str;
+    /// Identifies the protocol based on the provided data.
+    fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch>;
+    /// Returns the transport type of the protocol.
+    fn transport(&self) -> Transport;
+
+    /// Returns the registered hooks for this protocol.
+    #[cfg(feature = "hooks")]
+    fn hooks(&self) -> Vec<Arc<dyn ProtocolHook>> {
+        Vec::new()
+    }
+}
+
+dyn_clone::clone_trait_object!(RefractiumProtocol);
 
 /// Defines the destination address(es) for a protocol route.
 #[derive(Debug, Clone)]
@@ -32,19 +64,15 @@ impl ForwardTarget {
     }
 }
 
-/// Routing rule that associates a protocol name with its targets.
-#[derive(Debug, Clone)]
+/// Routing rule that associates a protocol with its targets.
+#[derive(Clone)]
 pub struct ProtocolRoute {
-    /// Unique identifier for the protocol.
-    pub name: String,
+    /// The protocol identification logic.
+    pub protocol: Arc<dyn RefractiumProtocol>,
     /// Optional SNI (Server Name Indication) for HTTPS routing.
     pub sni: Option<String>,
-    /// Optional byte patterns to match against the stream.
-    pub patterns: Option<Vec<String>>,
     /// The target destination for the traffic.
     pub forward_to: ForwardTarget,
-    /// The transport layer protocol to use.
-    pub transport: Transport,
 }
 
 /// Final application state after merging configuration sources.
@@ -64,10 +92,25 @@ pub struct ProxyConfig {
     pub max_connections_per_ip: usize,
     /// Whether hot reload is enabled.
     pub hot_reload: bool,
-    /// List of defined protocol routing rules.
-    pub protocols: Vec<ProtocolRoute>,
+    /// List of defined protocol routing rules (internal representation).
+    pub protocols: Vec<TomlRouteData>,
     /// Optional fallback address for unmatched TCP traffic.
     pub fallback_tcp: Option<String>,
     /// Optional fallback address for unmatched UDP traffic.
     pub fallback_udp: Option<String>,
+}
+
+/// Intermediate structure for configuration.
+#[derive(Debug, Clone)]
+pub struct TomlRouteData {
+    /// Protocol name.
+    pub name: String,
+    /// Optional SNI.
+    pub sni: Option<String>,
+    /// Identification patterns.
+    pub patterns: Option<Vec<String>>,
+    /// Forwarding target.
+    pub forward_to: ForwardTarget,
+    /// Transport type.
+    pub transport: Transport,
 }

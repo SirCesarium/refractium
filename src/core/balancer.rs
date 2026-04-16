@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::core::types::ProtocolRoute;
+
 /// A pool of backend addresses for a specific protocol.
 pub struct BackendPool {
     /// The list of backend addresses in the pool.
@@ -17,14 +19,29 @@ pub struct LoadBalancer {
     /// Maps "protocol" or "protocol:metadata" to a backend pool.
     routes: HashMap<String, BackendPool>,
     health: Arc<HealthMonitor>,
+    fallback: Option<String>,
 }
 
 impl LoadBalancer {
     /// Creates a new `LoadBalancer` with the given routes and health monitor.
     #[must_use]
-    pub fn new(routes: HashMap<String, Vec<String>>, health: Arc<HealthMonitor>) -> Self {
+    pub fn new(routes: Vec<ProtocolRoute>, health: Arc<HealthMonitor>) -> Self {
         let mut pools = HashMap::new();
-        for (key, addrs) in routes {
+        let mut fallback = None;
+
+        for route in routes {
+            let addrs = route.forward_to.to_vec();
+            let proto_name = route.protocol.name();
+            if proto_name == "fallback" {
+                fallback = addrs.first().cloned();
+                continue;
+            }
+
+            let key = route.sni.as_ref().map_or_else(
+                || proto_name.to_string(),
+                |sni| format!("{proto_name}:{sni}"),
+            );
+
             pools.insert(
                 key,
                 BackendPool {
@@ -33,9 +50,11 @@ impl LoadBalancer {
                 },
             );
         }
+
         Self {
             routes: pools,
             health,
+            fallback,
         }
     }
 
@@ -44,11 +63,10 @@ impl LoadBalancer {
         // 1. Try more specific match (protocol:metadata)
         if let Some(m) = metadata {
             let specific_key = format!("{protocol}:{m}");
-            if let Some(pool) = self.routes.get(&specific_key) {
-                let res = self.pick_from_pool(pool).await;
-                if res.is_some() {
-                    return res;
-                }
+            if let Some(pool) = self.routes.get(&specific_key)
+                && let Some(res) = self.pick_from_pool(pool).await
+            {
+                return Some(res);
             }
         }
 
@@ -57,9 +75,16 @@ impl LoadBalancer {
             return self.pick_from_pool(pool).await;
         }
 
+        // 3. Fallback
+        if protocol == "fallback"
+            && let Some(ref fb) = self.fallback
+            && self.health.is_healthy(fb).await
+        {
+            return Some(fb);
+        }
+
         None
     }
-
     async fn pick_from_pool<'a>(&self, pool: &'a BackendPool) -> Option<&'a String> {
         let len = pool.addresses.len();
         if len == 0 {

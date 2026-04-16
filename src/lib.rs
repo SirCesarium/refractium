@@ -15,22 +15,20 @@
 //!
 //! ## Quick Start
 //! ```rust,no_run
-//! use refractium::{Refractium, ProtocolRegistry, Http};
-//! use std::collections::HashMap;
+//! use refractium::{Refractium, Http, types::{ProtocolRoute, ForwardTarget, Transport}};
 //! use std::sync::Arc;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let mut registry = ProtocolRegistry::new();
-//!     registry.register(Arc::new(Http));
-//!
-//!     let mut routes = HashMap::new();
-//!     routes.insert("Http".to_string(), vec!["127.0.0.1:8080".to_string()]);
+//!     let routes = vec![ProtocolRoute {
+//!         protocol: Arc::new(Http),
+//!         sni: None,
+//!         forward_to: ForwardTarget::Single("127.0.0.1:8080".to_string()),
+//!     }];
 //!
 //!     let refractium = Refractium::builder()
-//!         .registries(Arc::new(registry), Arc::new(ProtocolRegistry::new()))
-//!         .routes(routes, HashMap::new())
-//!         .build();
+//!         .routes(routes, Vec::new())
+//!         .build()?;
 //!
 //!     refractium.run_tcp("0.0.0.0:80".parse()?).await?;
 //!     Ok(())
@@ -53,12 +51,12 @@ pub mod macros;
 pub mod protocols;
 
 pub use crate::core::types;
-pub use crate::core::types::Transport;
+pub use crate::core::types::{ProtocolMatch, ProtocolRoute, RefractiumProtocol, Transport};
 pub use crate::core::{Refractium, RefractiumBuilder};
 pub use crate::errors::{RefractiumError, Result};
-pub use crate::protocols::{DynamicProtocol, ProtocolMatch, ProtocolRegistry, RefractiumProtocol};
-pub use dyn_clone;
+pub use crate::protocols::{DynamicProtocol, ProtocolRegistry};
 pub use bytes;
+pub use dyn_clone;
 
 #[cfg(feature = "proto-dns")]
 pub use crate::protocols::dns::Dns;

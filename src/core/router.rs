@@ -1,6 +1,7 @@
 use crate::core::balancer::LoadBalancer;
 use crate::core::health::HealthMonitor;
-use crate::protocols::{ProtocolRegistry, RefractiumProtocol};
+use crate::core::types::{ProtocolRoute, RefractiumProtocol};
+use crate::protocols::ProtocolRegistry;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -61,11 +62,7 @@ impl Router {
     }
 
     /// Replaces the current routes and reinitializes the load balancer.
-    pub async fn update_balancer(
-        &self,
-        routes: HashMap<String, Vec<String>>,
-        health: Arc<HealthMonitor>,
-    ) {
+    pub async fn update_balancer(&self, routes: Vec<ProtocolRoute>, health: Arc<HealthMonitor>) {
         let mut balancer_guard = self.balancer.write().await;
         *balancer_guard = LoadBalancer::new(routes, health);
     }

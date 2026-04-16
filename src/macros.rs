@@ -16,12 +16,13 @@ macro_rules! define_protocol {
         #[derive(Clone)]
         pub struct $name;
 
-        impl $crate::protocols::RefractiumProtocol for $name {
+        impl $crate::core::types::RefractiumProtocol for $name {
             #[inline]
-            fn identify(self: std::sync::Arc<Self>, $data: &[u8]) -> Option<$crate::protocols::ProtocolMatch> {
+            fn identify(self: std::sync::Arc<Self>, $data: &[u8]) -> Option<$crate::core::types::ProtocolMatch> {
+                use heck::ToSnakeCase;
                 if $body {
-                    return Some($crate::protocols::ProtocolMatch {
-                        name: stringify!($name).to_lowercase(),
+                    return Some($crate::core::types::ProtocolMatch {
+                        name: stringify!($name).to_snake_case(),
                         metadata: None,
                         implementation: self,
                     });
@@ -92,12 +93,12 @@ macro_rules! hook_protocol {
             }
         }
 
-        impl $crate::protocols::RefractiumProtocol for $wrapper {
+        impl $crate::core::types::RefractiumProtocol for $wrapper {
             #[inline]
-            fn identify(self: std::sync::Arc<Self>, data: &[u8]) -> Option<$crate::protocols::ProtocolMatch> {
+            fn identify(self: std::sync::Arc<Self>, data: &[u8]) -> Option<$crate::core::types::ProtocolMatch> {
                 let inner_proto = std::sync::Arc::new(self.inner.clone());
                 inner_proto.identify(data).map(|m| {
-                    $crate::protocols::ProtocolMatch {
+                    $crate::core::types::ProtocolMatch {
                         name: m.name,
                         metadata: m.metadata,
                         implementation: self,
@@ -110,6 +111,7 @@ macro_rules! hook_protocol {
             }
 
             fn transport(&self) -> $crate::core::types::Transport {
+                use $crate::core::types::RefractiumProtocol;
                 self.inner.transport()
             }
 

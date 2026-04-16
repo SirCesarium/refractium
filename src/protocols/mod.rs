@@ -3,8 +3,9 @@
 //! This module provides the infrastructure for identifying different protocols
 //! based on the initial data received (magic bytes, SNI, etc.).
 
-use crate::core::types::Transport;
+use crate::core::types::{ProtocolMatch, RefractiumProtocol, Transport};
 use memchr::memmem;
+use std::sync::Arc;
 
 /// DNS protocol identification.
 #[cfg(feature = "proto-dns")]
@@ -26,42 +27,6 @@ pub mod ssh;
 #[cfg(feature = "hooks")]
 pub mod hooks;
 
-#[cfg(feature = "hooks")]
-use std::sync::Arc;
-#[cfg(not(feature = "hooks"))]
-use std::sync::Arc;
-
-#[cfg(feature = "hooks")]
-use crate::protocols::hooks::ProtocolHook;
-
-/// A match result for a protocol identification attempt.
-pub struct ProtocolMatch {
-    /// The name of the identified protocol.
-    pub name: String,
-    /// Optional metadata extracted during identification (e.g., SNI hostname).
-    pub metadata: Option<String>,
-    /// The protocol implementation that matched.
-    pub implementation: Arc<dyn RefractiumProtocol>,
-}
-
-/// A trait for protocol identification logic.
-pub trait RefractiumProtocol: Send + Sync + dyn_clone::DynClone {
-    /// Returns the name of the protocol.
-    fn name(&self) -> &str;
-    /// Identifies the protocol based on the provided data.
-    fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch>;
-    /// Returns the transport type of the protocol.
-    fn transport(&self) -> Transport;
-
-    /// Returns the registered hooks for this protocol.
-    #[cfg(feature = "hooks")]
-    fn hooks(&self) -> Vec<Arc<dyn ProtocolHook>> {
-        Vec::new()
-    }
-}
-
-dyn_clone::clone_trait_object!(RefractiumProtocol);
-
 /// A simple protocol identification implementation based on string patterns.
 #[derive(Clone)]
 pub struct DynamicProtocol {
@@ -73,6 +38,7 @@ pub struct DynamicProtocol {
 
 impl RefractiumProtocol for DynamicProtocol {
     fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch> {
+        use heck::ToSnakeCase;
         let matched = self
             .patterns
             .iter()
@@ -80,7 +46,7 @@ impl RefractiumProtocol for DynamicProtocol {
 
         if matched {
             return Some(ProtocolMatch {
-                name: self.name.to_lowercase(),
+                name: self.name.to_snake_case(),
                 metadata: None,
                 implementation: self,
             });
@@ -120,6 +86,16 @@ impl ProtocolRegistry {
     /// Registers a new protocol identification logic.
     pub fn register(&mut self, proto: Arc<dyn RefractiumProtocol>) {
         self.protocols.push(proto);
+    }
+
+    /// Returns a list of all registered protocol names, normalized to `snake_case`.
+    #[must_use]
+    pub fn get_registered_names(&self) -> Vec<String> {
+        use heck::ToSnakeCase;
+        self.protocols
+            .iter()
+            .map(|p| p.name().to_snake_case())
+            .collect()
     }
 
     /// Probes the provided data against all registered protocols.
