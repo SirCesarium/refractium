@@ -1,5 +1,5 @@
 use crate::commands::Cli;
-use refractium::core::types::{ForwardTarget, ProtocolRoute, ProxyConfig, Transport};
+use refractium::core::types::{ForwardTarget, ProxyConfig, TomlRouteData, Transport};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -44,7 +44,7 @@ pub struct ServerConfig {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TomlRoute {
-    #[serde(deserialize_with = "lowercase_string")]
+    #[serde(deserialize_with = "snake_case_string")]
     pub name: String,
     pub sni: Option<String>,
     pub patterns: Option<Vec<String>>,
@@ -229,7 +229,7 @@ impl TomlConfig {
             protocols: self
                 .protocols
                 .into_iter()
-                .map(|r| ProtocolRoute {
+                .map(|r| TomlRouteData {
                     name: r.name,
                     sni: r.sni,
                     patterns: r.patterns,
@@ -244,12 +244,13 @@ impl TomlConfig {
     }
 }
 
-fn lowercase_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+fn snake_case_string<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
+    use heck::ToSnakeCase;
     let s = String::deserialize(deserializer)?;
-    Ok(s.to_lowercase())
+    Ok(s.to_snake_case())
 }
 
 #[cfg(test)]
