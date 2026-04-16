@@ -19,7 +19,7 @@ macro_rules! define_protocol {
         impl $crate::core::types::RefractiumProtocol for $name {
             #[inline]
             fn identify(self: std::sync::Arc<Self>, $data: &[u8]) -> Option<$crate::core::types::ProtocolMatch> {
-                use heck::ToSnakeCase;
+                use $crate::heck::ToSnakeCase;
                 if $body {
                     return Some($crate::core::types::ProtocolMatch {
                         name: stringify!($name).to_snake_case(),
@@ -31,7 +31,7 @@ macro_rules! define_protocol {
             }
 
             fn name(&self) -> String {
-                use heck::ToSnakeCase;
+                use $crate::heck::ToSnakeCase;
                 stringify!($name).to_snake_case()
             }
 
@@ -108,7 +108,7 @@ macro_rules! hook_protocol {
             }
 
             fn name(&self) -> String {
-                use heck::ToSnakeCase;
+                use $crate::heck::ToSnakeCase;
                 stringify!($proto).to_snake_case()
             }
 
