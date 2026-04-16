@@ -46,6 +46,7 @@ pub mod core;
 /// Error types and result aliases.
 pub mod errors;
 /// Internal macros for protocol definition.
+#[macro_use]
 pub mod macros;
 /// Protocol implementations and identification logic.
 pub mod protocols;

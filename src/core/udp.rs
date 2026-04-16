@@ -1,7 +1,7 @@
 use crate::core::health::HealthMonitor;
 use crate::core::router::{RouteResult, Router};
 use crate::errors::{RefractiumError, Result};
-use crate::{refractium_debug, refractium_info, refractium_trace};
+use crate::macros::{refractium_debug, refractium_info, refractium_trace};
 use bytes::Bytes;
 use std::collections::HashMap;
 use std::net::SocketAddr;
