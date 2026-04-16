@@ -43,6 +43,7 @@ macro_rules! define_protocol {
 }
 
 /// Macro to quickly define a new protocol hook.
+#[cfg(feature = "hooks")]
 #[macro_export]
 macro_rules! define_hook {
     ($name:ident, |$ctx:ident, $dir:ident, $pkt:ident| $body:expr) => {
@@ -65,6 +66,7 @@ macro_rules! define_hook {
 }
 
 /// Automatically generated wrapper to intercept protocol traffic.
+#[cfg(feature = "hooks")]
 #[macro_export]
 macro_rules! hook_protocol {
     (
