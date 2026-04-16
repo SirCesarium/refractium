@@ -1,0 +1,45 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+
+      - name: Setup Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync docs to Wiki
+        env:
+          WIKI_REPO: "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git"
+        run: |
+          git clone "$WIKI_REPO" wiki_repo || {
+            echo "Wiki repo not found or not initialized. Skipping sync."
+            exit 0
+          }
+          
+          rm -rf wiki_repo/*
+          
+          cp -r docs/* wiki_repo/
+          
+          cd wiki_repo
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add .
+            git commit -m "docs: auto-sync from main branch (docs/)"
+            git push origin master || git push origin main
+          else
+            echo "No changes to sync."
+          fi
