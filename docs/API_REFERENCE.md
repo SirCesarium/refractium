@@ -18,7 +18,7 @@ The main entry point for running the proxy servers.
 ### RefractiumBuilder
 
 - `new()`: Default configuration (10k connections, 50 per IP, 1k peek buffer).
-- `routes(tcp: Vec<ProtocolRoute>, udp: Vec<ProtocolRoute>)`: Defines the routing table.
+- `routes(tcp: Vec<ProtocolRoute>, udp: Vec<ProtocolRoute>)`: Defines the routing table. Note: Protocols are evaluated in the order they are provided in these vectors.
 - `peek_config(size: usize, timeout_ms: u64)`: Configures the identification phase.
 - `max_connections(max: usize)`: Global connection limit.
 - `max_connections_per_ip(max: usize)`: Per-IP rate limiting.
