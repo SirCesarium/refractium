@@ -1,7 +1,6 @@
 //! HTTP protocol identification logic.
 
 use crate::core::types::Transport;
-use crate::define_protocol;
 
 define_protocol!(
     /// HTTP protocol identification implementation.

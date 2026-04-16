@@ -82,7 +82,7 @@ impl<S> HookedStream<S> {
         let direction = self.direction;
 
         if let Err(mpsc::error::TrySendError::Full(_)) = tx.try_send((direction, pkt)) {
-            crate::refractium_warn!(
+            crate::macros::refractium_warn!(
                 "Hook buffer full, dropping packet for direction {:?}",
                 direction
             );

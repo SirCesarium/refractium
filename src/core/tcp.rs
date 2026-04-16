@@ -4,7 +4,7 @@ use crate::core::health::HealthMonitor;
 use crate::core::proxy::proxy_tcp;
 use crate::core::router::{RouteResult, Router};
 use crate::errors::{RefractiumError, Result};
-use crate::{refractium_debug, refractium_error, refractium_trace, refractium_warn};
+use crate::macros::{refractium_debug, refractium_error, refractium_trace, refractium_warn};
 use dashmap::DashMap;
 use std::io;
 use std::net::{IpAddr, SocketAddr};

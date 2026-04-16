@@ -1,7 +1,6 @@
 //! FTP protocol identification logic.
 
 use crate::core::types::Transport;
-use crate::define_protocol;
 
 define_protocol!(
     /// FTP protocol identification implementation.

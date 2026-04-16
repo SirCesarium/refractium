@@ -119,7 +119,6 @@ macro_rules! hook_protocol {
                 self.inner.transport()
             }
 
-            #[cfg(feature = "hooks")]
             fn hooks(&self) -> Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>> {
                 self.hooks.clone()
             }
@@ -136,7 +135,6 @@ macro_rules! hook_protocol {
 /// Internal trace logging macro.
 ///
 /// Only active when the `logging` feature is enabled.
-#[macro_export]
 macro_rules! refractium_trace {
     ($($arg:tt)*) => {
         {
@@ -149,7 +147,6 @@ macro_rules! refractium_trace {
 /// Internal debug logging macro.
 ///
 /// Only active when the `logging` feature is enabled.
-#[macro_export]
 macro_rules! refractium_debug {
     ($($arg:tt)*) => {
         {
@@ -162,7 +159,6 @@ macro_rules! refractium_debug {
 /// Internal info logging macro.
 ///
 /// Only active when the `logging` feature is enabled.
-#[macro_export]
 macro_rules! refractium_info {
     ($($arg:tt)*) => {
         {
@@ -175,7 +171,6 @@ macro_rules! refractium_info {
 /// Internal warning logging macro.
 ///
 /// Only active when the `logging` feature is enabled.
-#[macro_export]
 macro_rules! refractium_warn {
     ($($arg:tt)*) => {
         {
@@ -188,7 +183,6 @@ macro_rules! refractium_warn {
 /// Internal error logging macro.
 ///
 /// Only active when the `logging` feature is enabled.
-#[macro_export]
 macro_rules! refractium_error {
     ($($arg:tt)*) => {
         {
@@ -197,3 +191,9 @@ macro_rules! refractium_error {
         }
     };
 }
+
+pub(crate) use refractium_debug;
+pub(crate) use refractium_error;
+pub(crate) use refractium_info;
+pub(crate) use refractium_trace;
+pub(crate) use refractium_warn;
