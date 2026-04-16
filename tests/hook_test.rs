@@ -3,11 +3,10 @@
 use bytes::Bytes;
 use refractium::core::Refractium;
 use refractium::hook_protocol;
-use refractium::protocols::ProtocolRegistry;
 use refractium::protocols::ftp::Ftp;
 use refractium::protocols::hooks::{Direction, HookContext, ProtocolHook};
 use refractium::protocols::http::Http;
-use std::collections::HashMap;
+use refractium::types::{ForwardTarget, ProtocolRoute};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -84,30 +83,40 @@ async fn test_hook_isolation() {
         hooks: []
     );
 
-    let mut registry = ProtocolRegistry::new();
-
     let http_hooks: Vec<Arc<dyn ProtocolHook>> = vec![Arc::new(HttpHook {
         counter: Arc::clone(&tracker.http_calls),
     })];
-    registry.register(Arc::new(HookedHttp::with_hooks(http_hooks)));
+    let hooked_http = Arc::new(HookedHttp::with_hooks(http_hooks));
 
     let ftp_hooks: Vec<Arc<dyn ProtocolHook>> = vec![Arc::new(FtpHook {
         counter: Arc::clone(&tracker.ftp_calls),
     })];
-    registry.register(Arc::new(HookedFtp::with_hooks(ftp_hooks)));
+    let hooked_ftp = Arc::new(HookedFtp::with_hooks(ftp_hooks));
 
-    let mut routes = HashMap::new();
-    routes.insert("http".to_string(), vec![backend_addr.to_string()]);
-    routes.insert("ftp".to_string(), vec![backend_addr.to_string()]);
+    let routes = vec![
+        ProtocolRoute {
+            protocol: hooked_http,
+            sni: None,
+            forward_to: ForwardTarget::Single(backend_addr.to_string()),
+        },
+        ProtocolRoute {
+            protocol: hooked_ftp,
+            sni: None,
+            forward_to: ForwardTarget::Single(backend_addr.to_string()),
+        },
+    ];
 
     let refractium = Refractium::builder()
-        .registries(Arc::new(registry), Arc::new(ProtocolRegistry::new()))
-        .routes(routes, HashMap::new())
-        .build();
+        .routes(routes, Vec::new())
+        .build()
+        .expect("Failed to build Refractium");
 
     let token = refractium.cancel_token();
+    let r_clone = Arc::new(refractium);
+    let r_task = Arc::clone(&r_clone);
+
     tokio::spawn(async move {
-        let _ = refractium.run_tcp(proxy_addr).await;
+        let _ = r_task.run_tcp(proxy_addr).await;
     });
 
     sleep(Duration::from_millis(300)).await;

@@ -1,7 +1,6 @@
 use refractium::core::Refractium;
-use refractium::protocols::ProtocolRegistry;
 use refractium::protocols::http::Http;
-use std::collections::HashMap;
+use refractium::types::{ForwardTarget, ProtocolRoute};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -24,20 +23,24 @@ async fn test_tcp_proxy_flow() {
         }
     });
 
-    let mut registry = ProtocolRegistry::new();
-    registry.register(Arc::new(Http));
-    let mut routes = HashMap::new();
-    routes.insert("Http".to_string(), vec![backend_addr.to_string()]);
+    let routes = vec![ProtocolRoute {
+        protocol: Arc::new(Http),
+        sni: None,
+        forward_to: ForwardTarget::Single(backend_addr.to_string()),
+    }];
 
     let refractium = Refractium::builder()
-        .registries(Arc::new(registry), Arc::new(ProtocolRegistry::new()))
-        .routes(routes, HashMap::new())
+        .routes(routes, Vec::new())
         .peek_config(1024, 3000)
-        .build();
+        .build()
+        .expect("Failed to build Refractium");
 
     let token = refractium.cancel_token();
+    let r_clone = Arc::new(refractium);
+    let r_task = Arc::clone(&r_clone);
+
     let refractium_task = tokio::spawn(async move {
-        let _ = refractium.run_tcp(proxy_addr).await;
+        let _ = r_task.run_tcp(proxy_addr).await;
     });
 
     sleep(Duration::from_millis(200)).await;
