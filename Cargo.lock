@@ -821,6 +821,7 @@ dependencies = [
  "criterion",
  "dashmap",
  "dyn-clone",
+ "heck",
  "memchr",
  "notify",
  "rand",
