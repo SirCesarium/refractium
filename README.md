@@ -21,7 +21,10 @@
   - Optimized for low-latency infrastructure and high-throughput applications.
 
 - **Extensible**
-  - You can define new protocols in the `refractium.toml` file. Or use Refractium as a library and define new built-in protocols.
+  - Define new protocols in the `refractium.toml` file or as a library.
+
+- **Fail-Fast Configuration**
+  - Strict validation: the engine ensures all routes point to registered protocols before starting.
 
 - **Hot Reload**
   - Update your routing table without dropping active connections or restarting the server.
@@ -192,13 +195,13 @@ To use `refractium` as a dependency without the CLI overhead, disable default fe
 ```toml
 [dependencies]
 # Minimal installation for library usage
-refractium = { version = "1.0", default-features = false, features = ["logging", "proto-http"] }
+refractium = { version = "3.0", default-features = false, features = ["logging", "proto-http"] }
 ```
 
 Refractium is also a modular engine. You can define complex identification logic in Rust by implementing the `RefractiumProtocol` trait or using the provided macro:
 
 ```rust
-use refractium::{define_protocol, Refractium, Transport, ProtocolRegistry};
+use refractium::{Refractium, define_protocol, types::{ProtocolRoute, ForwardTarget, Transport}};
 use std::sync::Arc;
 
 // Define a new protocol outside the project
@@ -210,14 +213,18 @@ define_protocol!(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut registry = ProtocolRegistry::new();
-    registry.register(Arc::new(MyProto));
+    // Routes directly associate a protocol with its destination
+    let routes = vec![ProtocolRoute {
+        protocol: Arc::new(MyProto),
+        sni: None,
+        forward_to: ForwardTarget::Single("127.0.0.1:8080".to_string()),
+    }];
 
     let refractium = Refractium::builder()
-        .registries(Arc::new(registry), Arc::new(ProtocolRegistry::new()))
-        .build();
+        .routes(routes, Vec::new()) // TCP and UDP routes
+        .build()?;
 
-    refractium.run_tcp("0.0.0.0:8080".parse()?).await?;
+    refractium.run_tcp("0.0.0.0:8081".parse()?).await?;
     Ok(())
 }
 ```
@@ -229,7 +236,7 @@ Refractium allows you to intercept raw traffic in real-time. Hooks are executed 
 You can quickly create and attach hooks using the provided macros:
 
 ```rust
-use refractium::{define_hook, hook_protocol, Http, ProtocolRegistry};
+use refractium::{Refractium, define_hook, hook_protocol, Http, types::ProtocolRoute, ForwardTarget};
 use std::sync::Arc;
 
 // 1. Define a hook using a closure
@@ -244,7 +251,6 @@ define_hook!(MyPacketLogger, |ctx, direction, packet| {
 });
 
 // 2. Wrap an existing protocol (like Http) with one or more hooks
-// This automatically generates a wrapper to bypass the Orphan Rule.
 hook_protocol!(
     wrapper: HookedHttp,
     proto: Http,
@@ -253,12 +259,18 @@ hook_protocol!(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut registry = ProtocolRegistry::new();
+    let routes = vec![ProtocolRoute {
+        protocol: Arc::new(HookedHttp::new()),
+        sni: None,
+        forward_to: ForwardTarget::Single("127.0.0.1:8080".to_string()),
+    }];
 
-    // 3. Register your hooked protocol
-    registry.register(Arc::new(HookedHttp::new()));
+    let refractium = Refractium::builder()
+        .routes(routes, Vec::new())
+        .build()?;
 
-    // ... build and run Refractium
+    // ... run Refractium
+    Ok(())
 }
 ```
 
