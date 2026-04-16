@@ -36,6 +36,10 @@ jobs:
           
           cp -r docs/* wiki_repo/
           
+          if [ -f wiki_repo/README.md ]; then
+            mv wiki_repo/README.md wiki_repo/Home.md
+          fi
+          
           cd wiki_repo
           if [[ -n "$(git status --porcelain)" ]]; then
             git add .
