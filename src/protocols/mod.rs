@@ -46,7 +46,7 @@ impl RefractiumProtocol for DynamicProtocol {
 
         if matched {
             return Some(ProtocolMatch {
-                name: self.name.to_string().to_snake_case(),
+                name: self.name.to_snake_case(),
                 metadata: None,
                 implementation: self,
             });
@@ -55,7 +55,7 @@ impl RefractiumProtocol for DynamicProtocol {
     }
 
     fn name(&self) -> String {
-        self.name.to_string()
+        self.name.clone()
     }
 
     fn transport(&self) -> Transport {

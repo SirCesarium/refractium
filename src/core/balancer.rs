@@ -37,10 +37,10 @@ impl LoadBalancer {
                 continue;
             }
 
-            let key = route.sni.as_ref().map_or_else(
-                || proto_name.to_string(),
-                |sni| format!("{proto_name}:{sni}"),
-            );
+            let key = route
+                .sni
+                .as_ref()
+                .map_or_else(|| proto_name.clone(), |sni| format!("{proto_name}:{sni}"));
 
             pools.insert(
                 key,

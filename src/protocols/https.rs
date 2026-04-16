@@ -52,7 +52,7 @@ impl RefractiumProtocol for Https {
                 && let Some(sni) = Self::parse_sni(&data[pos..pos + ext_len])
             {
                 return Some(ProtocolMatch {
-                    name: "https".to_string().to_string(),
+                    name: "https".to_string(),
                     metadata: Some(sni),
                     implementation: self,
                 });
@@ -61,7 +61,7 @@ impl RefractiumProtocol for Https {
         }
 
         Some(ProtocolMatch {
-            name: "https".to_string().to_string(),
+            name: "https".to_string(),
             metadata: None,
             implementation: self,
         })
