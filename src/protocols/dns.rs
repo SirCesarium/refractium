@@ -21,7 +21,7 @@ impl RefractiumProtocol for Dns {
 
         if is_query && op_code == 0 {
             return Some(ProtocolMatch {
-                name: "dns".to_string(),
+                name: "dns".to_string().to_string(),
                 metadata: None,
                 implementation: self,
             });
@@ -29,8 +29,8 @@ impl RefractiumProtocol for Dns {
         None
     }
 
-    fn name(&self) -> &'static str {
-        "dns"
+    fn name(&self) -> String {
+        "dns".to_string()
     }
 
     fn transport(&self) -> Transport {

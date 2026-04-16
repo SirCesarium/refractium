@@ -29,7 +29,7 @@ pub struct ProtocolMatch {
 /// A trait for protocol identification logic.
 pub trait RefractiumProtocol: Send + Sync + dyn_clone::DynClone {
     /// Returns the name of the protocol.
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
     /// Identifies the protocol based on the provided data.
     fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch>;
     /// Returns the transport type of the protocol.
