@@ -8,12 +8,12 @@ pub mod proxy;
 pub mod router;
 /// TCP server implementation.
 pub mod tcp;
+/// Types used across the core module.
+pub mod types;
 /// UDP server implementation.
 pub mod udp;
 
-/// Types used across the core module.
-pub mod types;
-
+use crate::core::types::ProtocolRoute;
 use crate::errors::Result;
 use crate::protocols::ProtocolRegistry;
 use balancer::LoadBalancer;
@@ -42,18 +42,17 @@ pub struct Refractium {
 impl Refractium {
     /// Returns a new `RefractiumBuilder` instance.
     #[must_use]
-    pub fn builder() -> RefractiumBuilder {
+    pub const fn builder() -> RefractiumBuilder {
         RefractiumBuilder::new()
     }
 
     /// Reloads the routing table for both TCP and UDP.
-    pub async fn reload_routes(
-        &self,
-        tcp: HashMap<String, Vec<String>>,
-        udp: HashMap<String, Vec<String>>,
-    ) {
-        let mut targets = tcp.values().flatten().cloned().collect::<Vec<_>>();
-        targets.extend(udp.values().flatten().cloned());
+    pub async fn reload_routes(&self, tcp: Vec<ProtocolRoute>, udp: Vec<ProtocolRoute>) {
+        let mut targets = tcp
+            .iter()
+            .flat_map(|r| r.forward_to.to_vec())
+            .collect::<Vec<_>>();
+        targets.extend(udp.iter().flat_map(|r| r.forward_to.to_vec()));
 
         self.router_tcp
             .update_balancer(tcp, Arc::clone(&self.health))
@@ -75,7 +74,7 @@ impl Refractium {
     ///
     /// # Errors
     ///
-    /// Returns a `RefractiumError` if the server fails to start or encounters a fatal error.
+    /// Returns a `RefractiumError` if the server fails to start.
     pub async fn run_tcp(&self, addr: SocketAddr) -> Result<()> {
         TcpServer::new(
             addr,
@@ -95,7 +94,7 @@ impl Refractium {
     ///
     /// # Errors
     ///
-    /// Returns a `RefractiumError` if the server fails to start or encounters a fatal error.
+    /// Returns a `RefractiumError` if the server fails to start.
     pub async fn run_udp(&self, addr: SocketAddr) -> Result<()> {
         UdpServer::new(
             addr,
@@ -107,7 +106,7 @@ impl Refractium {
         .await
     }
 
-    /// Runs both TCP and UDP servers on the specified address.
+    /// Runs both TCP and UDP servers.
     ///
     /// # Errors
     ///
@@ -121,7 +120,6 @@ impl Refractium {
     pub async fn report_health(&self) {
         let tcp_status = self.router_tcp.get_health_status().await;
         let udp_status = self.router_udp.get_health_status().await;
-
         if !tcp_status.is_empty() {
             println!("\n[TCP Backends]");
             Self::print_status_map(tcp_status);
@@ -140,12 +138,12 @@ impl Refractium {
                 if idx > 0 {
                     print!(", ");
                 }
-                let status_str = if *alive {
-                    "\x1b[32mUP\x1b[0m" // Green
+                let s = if *alive {
+                    "\x1b[32mUP\x1b[0m"
                 } else {
-                    "\x1b[31mDOWN\x1b[0m" // Red
+                    "\x1b[31mDOWN\x1b[0m"
                 };
-                print!("{addr} [{status_str}]");
+                print!("{addr} [{s}]");
             }
             println!();
         }
@@ -154,10 +152,8 @@ impl Refractium {
 
 /// Builder for the `Refractium` engine.
 pub struct RefractiumBuilder {
-    registry_tcp: Option<Arc<ProtocolRegistry>>,
-    registry_udp: Option<Arc<ProtocolRegistry>>,
-    routes_tcp: HashMap<String, Vec<String>>,
-    routes_udp: HashMap<String, Vec<String>>,
+    routes_tcp: Vec<ProtocolRoute>,
+    routes_udp: Vec<ProtocolRoute>,
     peek_size: usize,
     peek_timeout: u64,
     max_connections: usize,
@@ -168,12 +164,10 @@ pub struct RefractiumBuilder {
 impl RefractiumBuilder {
     /// Creates a new `RefractiumBuilder` with default values.
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
-            registry_tcp: None,
-            registry_udp: None,
-            routes_tcp: HashMap::new(),
-            routes_udp: HashMap::new(),
+            routes_tcp: Vec::new(),
+            routes_udp: Vec::new(),
             peek_size: 1024,
             peek_timeout: 3000,
             max_connections: 10000,
@@ -182,21 +176,9 @@ impl RefractiumBuilder {
         }
     }
 
-    /// Sets the protocol registries for TCP and UDP.
-    #[must_use]
-    pub fn registries(mut self, tcp: Arc<ProtocolRegistry>, udp: Arc<ProtocolRegistry>) -> Self {
-        self.registry_tcp = Some(tcp);
-        self.registry_udp = Some(udp);
-        self
-    }
-
     /// Sets the routing tables for TCP and UDP.
     #[must_use]
-    pub fn routes(
-        mut self,
-        tcp: HashMap<String, Vec<String>>,
-        udp: HashMap<String, Vec<String>>,
-    ) -> Self {
+    pub fn routes(mut self, tcp: Vec<ProtocolRoute>, udp: Vec<ProtocolRoute>) -> Self {
         self.routes_tcp = tcp;
         self.routes_udp = udp;
         self
@@ -232,15 +214,20 @@ impl RefractiumBuilder {
     }
 
     /// Builds the `Refractium` engine.
-    #[must_use]
-    pub fn build(self) -> Refractium {
+    ///
+    /// # Errors
+    ///
+    /// Returns `RefractiumError::ConfigError` if configuration is invalid.
+    pub fn build(self) -> Result<Refractium> {
         let health = Arc::new(HealthMonitor::new());
         self.init_health(&health);
 
-        let router_tcp = Self::do_build_router(self.routes_tcp, self.registry_tcp, &health);
-        let router_udp = Self::do_build_router(self.routes_udp, self.registry_udp, &health);
+        let (reg_tcp, reg_udp) = self.build_registries();
 
-        Refractium {
+        let router_tcp = Self::do_build_router(self.routes_tcp, Arc::new(reg_tcp), &health);
+        let router_udp = Self::do_build_router(self.routes_udp, Arc::new(reg_udp), &health);
+
+        Ok(Refractium {
             router_tcp,
             router_udp,
             health,
@@ -249,27 +236,39 @@ impl RefractiumBuilder {
             max_connections: self.max_connections,
             max_connections_per_ip: self.max_connections_per_ip,
             cancel_token: self.cancel_token.unwrap_or_default(),
+        })
+    }
+
+    fn build_registries(&self) -> (ProtocolRegistry, ProtocolRegistry) {
+        let mut reg_tcp = ProtocolRegistry::new();
+        let mut reg_udp = ProtocolRegistry::new();
+
+        for route in &self.routes_tcp {
+            reg_tcp.register(Arc::clone(&route.protocol));
         }
+        for route in &self.routes_udp {
+            reg_udp.register(Arc::clone(&route.protocol));
+        }
+
+        (reg_tcp, reg_udp)
     }
 
     fn init_health(&self, health: &Arc<HealthMonitor>) {
         let mut targets = self
             .routes_tcp
-            .values()
-            .flatten()
-            .cloned()
+            .iter()
+            .flat_map(|r| r.forward_to.to_vec())
             .collect::<Vec<_>>();
-        targets.extend(self.routes_udp.values().flatten().cloned());
+        targets.extend(self.routes_udp.iter().flat_map(|r| r.forward_to.to_vec()));
         health.start_monitoring(targets);
     }
 
     fn do_build_router(
-        routes: HashMap<String, Vec<String>>,
-        registry: Option<Arc<ProtocolRegistry>>,
+        routes: Vec<ProtocolRoute>,
+        registry: Arc<ProtocolRegistry>,
         health: &Arc<HealthMonitor>,
     ) -> Arc<Router> {
         let balancer = Arc::new(RwLock::new(LoadBalancer::new(routes, Arc::clone(health))));
-        let registry = registry.unwrap_or_else(|| Arc::new(ProtocolRegistry::new()));
         Arc::new(Router::new(registry, balancer))
     }
 }
