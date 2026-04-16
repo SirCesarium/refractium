@@ -25,3 +25,13 @@ Refractium is designed for high-concurrency environments:
 - Protocols are stored as `Arc<dyn RefractiumProtocol>`, allowing them to be shared across multiple worker threads.
 - Routing tables are protected by `RwLock`, enabling zero-downtime hot reloads of the routing logic.
 - The `HealthMonitor` runs in the background, updating backend status without blocking the main data path.
+
+## The L4/L7 Hybrid Advantage
+
+Refractium is architecturally defined as an L4 (Transport Layer) proxy, but it possesses L7 (Application Layer) intelligence. This hybrid nature provides the best of both worlds:
+
+- **L4 Performance**: By operating primarily on raw byte streams, Refractium achieves near-native throughput and ultra-low latency. It avoids the massive overhead of full application-layer parsing, TLS termination (unless required), and header re-serialization that traditional L7 proxies (like Nginx or HAProxy in full L7 mode) impose.
+- **L7 Intelligence via Hooks**: While the data path remains L4 for speed, the identification phase and the Hook system provide L7-like capabilities. Hooks allow for deep packet inspection (DPI) and real-time traffic modification.
+- **Efficiency**: You only pay for the L7 features you use. If no hooks are attached, the engine runs at full L4 speed. If hooks are enabled, they are executed asynchronously, ensuring that the critical path of data transfer remains as fast as possible.
+
+This approach allows Refractium to act as a lightweight "Application-Aware" multiplexer that scales with your infrastructure without becoming a bottleneck.
