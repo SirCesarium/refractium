@@ -55,7 +55,7 @@ jobs:
         shell: bash
 
       - name: Release Binaries
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: target/${{ matrix.target }}/release/${{ matrix.release_name }}
         env:
