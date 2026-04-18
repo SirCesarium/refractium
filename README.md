@@ -4,7 +4,7 @@
 
 ---
 
-`refractium` is a high-performance multiplexer that identifies incoming traffic by protocol signature and routes it to the correct backend. It allows Web, SSH, and custom binary services to coexist on the same external port with near-native throughput.
+`refractium` is a high-performance multiplexer that identifies incoming traffic by protocol signature and routes it to the correct backend. It allows Web, SSH, and custom binary services to coexist on the same external port with high throughput.
 
 ## Features
 
@@ -44,7 +44,7 @@ refractium operates at the edge of the transport layer. Unlike Layer 7 proxies (
 2. **Identifies:** Matches the signature against its protocol registry in nanoseconds.
 3. **Welds:** Once the destination is known, it "welds" the incoming stream directly to the backend.
 
-By using **zero-copy** techniques, data flows through the proxy with near-native throughput, as if the client were directly connected to the target service.
+By using **high-performance asynchronous streams**, data flows through the proxy with high throughput, as if the client were directly connected to the target service.
 
 ## Why Refractium?
 
