@@ -7,16 +7,22 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
-use tokio::sync::RwLock;
-use tokio::time::{self, Duration};
+use tokio::sync::{RwLock, mpsc};
+use tokio::time::{self, Duration, Instant};
 use tokio_util::sync::CancellationToken;
+
+/// Internal session data for UDP routing.
+struct UdpSession {
+    socket: Arc<UdpSocket>,
+    activity_tx: mpsc::Sender<()>,
+}
 
 /// A high-performance UDP server that performs protocol identification and session-based routing.
 pub struct UdpServer {
     addr: SocketAddr,
     router: Arc<Router>,
     _health: Arc<HealthMonitor>,
-    sessions: Arc<RwLock<HashMap<SocketAddr, Arc<UdpSocket>>>>,
+    sessions: Arc<RwLock<HashMap<SocketAddr, UdpSession>>>,
     cancel_token: CancellationToken,
 }
 
@@ -75,9 +81,14 @@ impl UdpServer {
     ) -> Result<()> {
         {
             let sessions_guard = self.sessions.read().await;
-            if let Some(proxy_socket) = sessions_guard.get(&peer) {
-                proxy_socket.send(&data).await?;
-                refractium_trace!("UDP packet forwarded for session: {}", peer);
+            if let Some(session) = sessions_guard.get(&peer) {
+                session.socket.send(&data).await?;
+                // Notify the session task to reset the idle timeout
+                let _ = session.activity_tx.try_send(());
+                refractium_trace!(
+                    "UDP packet forwarded and timeout reset for session: {}",
+                    peer
+                );
                 return Ok(());
             }
         }
@@ -101,8 +112,16 @@ impl UdpServer {
         let proxy_socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await?);
         proxy_socket.connect(&target).await?;
 
+        let (activity_tx, activity_rx) = mpsc::channel(32);
+
         let mut sessions_guard = self.sessions.write().await;
-        sessions_guard.insert(peer, Arc::clone(&proxy_socket));
+        sessions_guard.insert(
+            peer,
+            UdpSession {
+                socket: Arc::clone(&proxy_socket),
+                activity_tx,
+            },
+        );
         drop(sessions_guard);
 
         let sessions_task = Arc::clone(&self.sessions);
@@ -113,7 +132,7 @@ impl UdpServer {
                 () = token.cancelled() => {
                     refractium_trace!("Closing UDP session for {} due to shutdown", peer);
                 }
-                res = Self::handle_session(data, peer, socket, proxy_socket, sessions_task) => {
+                res = Self::handle_session(data, peer, socket, proxy_socket, activity_rx, sessions_task) => {
                     if let Err(e) = res {
                         refractium_debug!("UDP Session Error for {}: {}", peer, e);
                     }
@@ -129,19 +148,29 @@ impl UdpServer {
         peer: SocketAddr,
         main_sock: Arc<UdpSocket>,
         proxy_sock: Arc<UdpSocket>,
-        sessions: Arc<RwLock<HashMap<SocketAddr, Arc<UdpSocket>>>>,
+        mut activity_rx: mpsc::Receiver<()>,
+        sessions: Arc<RwLock<HashMap<SocketAddr, UdpSession>>>,
     ) -> Result<()> {
         proxy_sock.send(&initial_data).await?;
         let mut resp_buf = [0u8; 2048];
         let timeout_duration = Duration::from_secs(30);
+        let sleep = time::sleep(timeout_duration);
+        tokio::pin!(sleep);
 
         loop {
             tokio::select! {
                 result = proxy_sock.recv(&mut resp_buf) => {
                     let n = result.map_err(RefractiumError::Io)?;
                     main_sock.send_to(&resp_buf[..n], &peer).await?;
+                    // Reset timeout on backend response
+                    sleep.as_mut().reset(Instant::now() + timeout_duration);
                 }
-                () = time::sleep(timeout_duration) => {
+                Some(()) = activity_rx.recv() => {
+                    // Reset timeout on client activity
+                    sleep.as_mut().reset(Instant::now() + timeout_duration);
+                }
+                () = &mut sleep => {
+                    refractium_trace!("UDP session timed out for {}", peer);
                     break;
                 }
             }
