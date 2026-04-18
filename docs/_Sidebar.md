@@ -1,10 +1,15 @@
 ### Documentation
 
 - [[Home]]
-- [[Architecture Overview|ARCHITECTURE]]
+- [[Getting Started|GETTING_STARTED]]
 - [[Custom Protocols|CUSTOM_PROTOCOLS]]
 - [[Load Balancing|LOAD_BALANCING]]
+- [[Protocol Hooks|HOOKS]]
 - [[API Reference|API_REFERENCE]]
+
+### Technical Specs
+
+- [Architecture Overview](../ARCHITECTURE.md)
 
 ### Resources
 
