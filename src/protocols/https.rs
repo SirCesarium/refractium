@@ -1,16 +1,28 @@
-//! HTTPS protocol identification logic.
+//! HTTPS protocol identification and SNI extraction logic.
 
 use crate::core::types::Transport;
 use crate::protocols::{ProtocolMatch, RefractiumProtocol};
 use std::cmp;
+use std::sync::Arc;
 
-/// HTTPS protocol identification implementation.
+/// HTTPS protocol identifier with SNI extraction.
+///
+/// This implementation inspects the TLS Client Hello handshake to identify
+/// the protocol and extract the Server Name Indication (SNI) extension.
+///
+/// This allows Refractium to perform domain-based routing for encrypted
+/// traffic without terminating the TLS connection.
 #[derive(Clone)]
 pub struct Https;
 
-use std::sync::Arc;
-
 impl RefractiumProtocol for Https {
+    /// Identifies HTTPS traffic and extracts the SNI hostname if present.
+    ///
+    /// The identification follows the TLS 1.2/1.3 Client Hello structure:
+    /// 1. Verifies the Content Type (0x16 - Handshake).
+    /// 2. Verifies the Handshake Type (0x01 - Client Hello).
+    /// 3. Skips the random, session ID, cipher suites, and compression methods.
+    /// 4. Iterates through TLS extensions to find the Server Name extension (0x00).
     fn identify(self: Arc<Self>, data: &[u8]) -> Option<ProtocolMatch> {
         if data.len() < 43 || data[0] != 0x16 || data[1] != 0x03 || data[5] != 0x01 {
             return None;

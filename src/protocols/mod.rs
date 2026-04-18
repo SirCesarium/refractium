@@ -1,7 +1,7 @@
-//! Protocol identification and registry logic.
+//! Infrastructure for protocol identification and registration.
 //!
-//! This module provides the infrastructure for identifying different protocols
-//! based on the initial data received (magic bytes, SNI, etc.).
+//! This module provides the `ProtocolRegistry` for managing multiple protocol
+//! identifiers and the `DynamicProtocol` structure for simple pattern-based matching.
 
 use crate::core::types::{ProtocolMatch, RefractiumProtocol, Transport};
 use memchr::memmem;
@@ -27,12 +27,15 @@ pub mod ssh;
 #[cfg(feature = "hooks")]
 pub mod hooks;
 
-/// A simple protocol identification implementation based on string patterns.
+/// A simple protocol identification implementation based on raw byte patterns.
+///
+/// `DynamicProtocol` searches for specific byte sequences anywhere within the
+/// initial peeked data of a connection.
 #[derive(Clone)]
 pub struct DynamicProtocol {
-    /// The name of the protocol.
+    /// The display name of the protocol.
     pub name: String,
-    /// The byte patterns to search for in the initial data.
+    /// The byte patterns to search for.
     pub patterns: Vec<String>,
 }
 
@@ -64,6 +67,9 @@ impl RefractiumProtocol for DynamicProtocol {
 }
 
 /// A registry for storing and querying protocol identification logic.
+///
+/// The registry stores several [`RefractiumProtocol`] implementations and allows
+/// probing raw byte slices against them to find a match.
 pub struct ProtocolRegistry {
     protocols: Vec<Arc<dyn RefractiumProtocol>>,
 }
@@ -83,7 +89,9 @@ impl ProtocolRegistry {
         }
     }
 
-    /// Registers a new protocol identification logic.
+    /// Registers a new protocol identification logic into the registry.
+    ///
+    /// Protocols are probed in the order they are registered.
     pub fn register(&mut self, proto: Arc<dyn RefractiumProtocol>) {
         self.protocols.push(proto);
     }
@@ -100,7 +108,8 @@ impl ProtocolRegistry {
 
     /// Probes the provided data against all registered protocols.
     ///
-    /// Returns the first protocol that matches the data.
+    /// Returns the [`ProtocolMatch`] for the first protocol that successfully
+    /// identifies the traffic.
     #[must_use]
     pub fn probe(&self, data: &[u8]) -> Option<ProtocolMatch> {
         for proto in &self.protocols {
