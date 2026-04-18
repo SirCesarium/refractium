@@ -27,7 +27,34 @@ use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use udp::UdpServer;
 
-/// Main Refractium engine that manages TCP and UDP servers.
+/// The main engine for the Refractium proxy.
+///
+/// `Refractium` manages the lifecycle of TCP and UDP servers, protocol identification,
+/// and backend health monitoring. It is designed to be highly concurrent and supports
+/// atomic routing table updates via `reload_routes`.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use refractium::{Refractium, Http, types::{ProtocolRoute, ForwardTarget}};
+/// use std::sync::Arc;
+///
+/// #[tokio::main]
+/// async fn main() -> anyhow::Result<()> {
+///     let routes = vec![ProtocolRoute {
+///         protocol: Arc::new(Http),
+///         sni: None,
+///         forward_to: ForwardTarget::Single("127.0.0.1:8080".to_string()),
+///     }];
+///
+///     let refractium = Refractium::builder()
+///         .routes(routes, Vec::new())
+///         .build()?;
+///
+///     refractium.run_tcp("0.0.0.0:80".parse()?).await?;
+///     Ok(())
+/// }
+/// ```
 pub struct Refractium {
     router_tcp: Arc<Router>,
     router_udp: Arc<Router>,
@@ -40,13 +67,16 @@ pub struct Refractium {
 }
 
 impl Refractium {
-    /// Returns a new `RefractiumBuilder` instance.
+    /// Returns a new [`RefractiumBuilder`] with default settings.
     #[must_use]
     pub const fn builder() -> RefractiumBuilder {
         RefractiumBuilder::new()
     }
 
-    /// Reloads the routing table for both TCP and UDP.
+    /// Atomically reloads the routing table for all active servers.
+    ///
+    /// This method updates the internal load balancers and starts monitoring any new
+    /// backend addresses. Active connections are not dropped during the reload.
     pub async fn reload_routes(&self, tcp: Vec<ProtocolRoute>, udp: Vec<ProtocolRoute>) {
         let mut targets = tcp
             .iter()
@@ -64,17 +94,22 @@ impl Refractium {
         self.health.start_monitoring(targets);
     }
 
-    /// Returns a clone of the cancellation token.
+    /// Returns the [`CancellationToken`] used by the engine.
+    ///
+    /// This can be used to trigger a graceful shutdown from external logic.
     #[must_use]
     pub fn cancel_token(&self) -> CancellationToken {
         self.cancel_token.clone()
     }
 
-    /// Runs the TCP server on the specified address.
+    /// Starts the TCP server on the provided address.
+    ///
+    /// This method will block until the server is shut down or an unrecoverable error occurs.
     ///
     /// # Errors
     ///
-    /// Returns a `RefractiumError` if the server fails to start.
+    /// Returns a [`crate::errors::RefractiumError::BindError`] if the address is already in use
+    /// or other IO errors occur during startup.
     pub async fn run_tcp(&self, addr: SocketAddr) -> Result<()> {
         TcpServer::new(
             addr,
@@ -90,11 +125,11 @@ impl Refractium {
         .await
     }
 
-    /// Runs the UDP server on the specified address.
+    /// Starts the UDP server on the provided address.
     ///
     /// # Errors
     ///
-    /// Returns a `RefractiumError` if the server fails to start.
+    /// Returns a [`crate::errors::RefractiumError::BindError`] if the address is already in use.
     pub async fn run_udp(&self, addr: SocketAddr) -> Result<()> {
         UdpServer::new(
             addr,
@@ -106,17 +141,19 @@ impl Refractium {
         .await
     }
 
-    /// Runs both TCP and UDP servers.
+    /// Starts both TCP and UDP servers concurrently.
     ///
     /// # Errors
     ///
-    /// Returns a `RefractiumError` if either server fails to start.
+    /// Returns an error if either the TCP or UDP server fails to bind.
     pub async fn run_both(&self, addr: SocketAddr) -> Result<()> {
         tokio::try_join!(self.run_tcp(addr), self.run_udp(addr))?;
         Ok(())
     }
 
-    /// Prints a health report of all configured backends.
+    /// Prints a visual health report of all configured backends to stdout.
+    ///
+    /// This is mainly used for debugging or CLI reporting.
     pub async fn report_health(&self) {
         let tcp_status = self.router_tcp.get_health_status().await;
         let udp_status = self.router_udp.get_health_status().await;
@@ -150,7 +187,7 @@ impl Refractium {
     }
 }
 
-/// Builder for the `Refractium` engine.
+/// A fluent builder for configuring and initializing the [`Refractium`] engine.
 pub struct RefractiumBuilder {
     routes_tcp: Vec<ProtocolRoute>,
     routes_udp: Vec<ProtocolRoute>,
@@ -162,7 +199,12 @@ pub struct RefractiumBuilder {
 }
 
 impl RefractiumBuilder {
-    /// Creates a new `RefractiumBuilder` with default values.
+    /// Creates a new `RefractiumBuilder` with the following defaults:
+    ///
+    /// - `peek_size`: 1024 bytes
+    /// - `peek_timeout`: 3000 ms
+    /// - `max_connections`: 10000
+    /// - `max_connections_per_ip`: 50
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -176,7 +218,7 @@ impl RefractiumBuilder {
         }
     }
 
-    /// Sets the routing tables for TCP and UDP.
+    /// Sets the routing table for the engine.
     #[must_use]
     pub fn routes(mut self, tcp: Vec<ProtocolRoute>, udp: Vec<ProtocolRoute>) -> Self {
         self.routes_tcp = tcp;
@@ -184,7 +226,10 @@ impl RefractiumBuilder {
         self
     }
 
-    /// Sets the peek configuration for protocol identification.
+    /// Configures the peeking phase behavior.
+    ///
+    /// - `size`: The maximum number of bytes to inspect for protocol identification.
+    /// - `timeout_ms`: Maximum time to wait for sufficient data before falling back.
     #[must_use]
     pub const fn peek_config(mut self, size: usize, timeout_ms: u64) -> Self {
         self.peek_size = size;
@@ -192,32 +237,37 @@ impl RefractiumBuilder {
         self
     }
 
-    /// Sets the maximum number of concurrent connections.
+    /// Sets the global maximum number of concurrent connections across all IPs.
     #[must_use]
     pub const fn max_connections(mut self, max: usize) -> Self {
         self.max_connections = max;
         self
     }
 
-    /// Sets the maximum number of concurrent connections per IP.
+    /// Sets the maximum number of concurrent connections allowed from a single IP address.
+    ///
+    /// Useful for basic DoS mitigation.
     #[must_use]
     pub const fn max_connections_per_ip(mut self, max: usize) -> Self {
         self.max_connections_per_ip = max;
         self
     }
 
-    /// Sets the cancellation token for the engine.
+    /// Attaches an external [`CancellationToken`] to the engine.
     #[must_use]
     pub fn cancel_token(mut self, token: CancellationToken) -> Self {
         self.cancel_token = Some(token);
         self
     }
 
-    /// Builds the `Refractium` engine.
+    /// Finalizes the configuration and initializes the [`Refractium`] engine.
+    ///
+    /// This also starts the background [`HealthMonitor`] task.
     ///
     /// # Errors
     ///
-    /// Returns `RefractiumError::ConfigError` if configuration is invalid.
+    /// Returns [`crate::errors::RefractiumError::ConfigError`] if the provided configuration
+    /// is invalid or incomplete.
     pub fn build(self) -> Result<Refractium> {
         let health = Arc::new(HealthMonitor::new());
         self.init_health(&health);

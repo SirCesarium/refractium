@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 /// Proxies data between two TCP streams bidirectionally.
 ///
-/// This function sets `nodelay` on both sockets and performs a zero-copy
-/// (where possible) transfer of data between the client and the backend.
+/// This function sets `nodelay` on both sockets and performs a high-performance
+/// asynchronous transfer of data between the client and the backend.
 ///
 /// # Errors
 ///

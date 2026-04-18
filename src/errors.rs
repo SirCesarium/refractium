@@ -2,32 +2,41 @@ use std::{io, result};
 use thiserror::Error;
 
 /// Main error type for the Refractium library.
+///
+/// This enum covers all possible error conditions that can occur during
+/// configuration, initialization, and runtime execution of the proxy.
 #[derive(Error, Debug)]
 pub enum RefractiumError {
-    /// Error returned when binding to a socket fails.
+    /// Returned when the server fails to bind to the requested network address.
+    ///
+    /// This usually happens if the port is already in use or the process lacks
+    /// sufficient permissions.
     #[error("Failed to bind to {0}: {1}")]
     BindError(String, io::Error),
 
-    /// Error returned when configuration loading or parsing fails.
+    /// Returned when there is an issue with the configuration data.
+    ///
+    /// This includes invalid TOML, missing required fields, or logical errors
+    /// in the routing table (e.g., duplicate protocol names).
     #[error("Configuration error: {0}")]
     ConfigError(String),
 
-    /// Wrapper for standard IO errors.
+    /// A wrapper for standard [`std::io::Error`]s encountered during runtime.
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
-    /// Error returned when an address cannot be resolved.
+    /// Returned when a backend hostname or address cannot be resolved.
     #[error("Address resolution failed: {0}")]
     AddrResolution(String),
 
-    /// Generic catch-all error with a custom message.
+    /// A generic error variant for custom error messages.
     #[error("Generic error: {0}")]
     Generic(String),
 
-    /// Error returned when an unknown or unexpected internal error occurs.
+    /// An unexpected internal error. If you encounter this, it may be a bug.
     #[error("Unknown error occurred")]
     Unknown,
 }
 
-/// Convenience alias for `std::result::Result<T, RefractiumError>`.
+/// Convenience alias for `Result<T, RefractiumError>`.
 pub type Result<T> = result::Result<T, RefractiumError>;
