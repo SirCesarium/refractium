@@ -3,7 +3,20 @@
 /// Macro to define a new protocol by implementing the `RefractiumProtocol` trait.
 ///
 /// This macro simplifies the creation of simple protocols that identify themselves
-/// by checking a data slice against a condition.
+/// by checking if the initial data slice matches a specific condition.
+///
+/// # Example
+///
+/// ```rust
+/// use refractium::{define_protocol, types::Transport};
+///
+/// define_protocol!(
+///     /// My custom protocol identifier.
+///     name: MyProto,
+///     transport: Transport::Tcp,
+///     identify: |data| data.starts_with(b"MY_MAGIC")
+/// );
+/// ```
 #[macro_export]
 macro_rules! define_protocol {
     (
@@ -42,7 +55,17 @@ macro_rules! define_protocol {
     };
 }
 
-/// Macro to quickly define a new protocol hook.
+/// Macro to quickly define a new protocol hook using a closure.
+///
+/// # Example
+///
+/// ```rust
+/// use refractium::define_hook;
+///
+/// define_hook!(MyHook, |ctx, dir, pkt| {
+///     println!("Captured {} bytes", pkt.len());
+/// });
+/// ```
 #[cfg(feature = "hooks")]
 #[macro_export]
 macro_rules! define_hook {
@@ -65,7 +88,24 @@ macro_rules! define_hook {
     };
 }
 
-/// Automatically generated wrapper to intercept protocol traffic.
+/// Wraps an existing protocol with one or more hooks.
+///
+/// This macro generates a wrapper that implements [`RefractiumProtocol`] and
+/// automatically attaches the provided hooks to the connection upon identification.
+///
+/// # Example
+///
+/// ```rust
+/// use refractium::{hook_protocol, Http, define_hook};
+///
+/// define_hook!(Logger, |ctx, dir, pkt| { /* ... */ });
+///
+/// hook_protocol!(
+///     wrapper: HookedHttp,
+///     proto: Http,
+///     hooks: [Logger]
+/// );
+/// ```
 #[cfg(feature = "hooks")]
 #[macro_export]
 macro_rules! hook_protocol {
@@ -81,6 +121,7 @@ macro_rules! hook_protocol {
         }
 
         impl $wrapper {
+            /// Creates a new instance with the default set of hooks.
             pub fn new() -> Self {
                 Self {
                     inner: $proto,
@@ -88,6 +129,7 @@ macro_rules! hook_protocol {
                 }
             }
 
+            /// Creates a new instance with a custom set of hooks.
             pub fn with_hooks(hooks: Vec<std::sync::Arc<dyn $crate::protocols::hooks::ProtocolHook>>) -> Self {
                 Self {
                     inner: $proto,
