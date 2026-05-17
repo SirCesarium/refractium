@@ -1,22 +1,30 @@
 [package]
 name = "refractium"
-version = "3.0.9"
+version = "3.0.10"
 edition = "2024"
 authors = ["SirCesarium"]
 description = "Extensible low-level reverse proxy for port multiplexing and protocol-based routing"
 license = "MIT"
+keywords = ["reverse-proxy", "multiplexer", "port-multiplexing", "protocol-routing", "tcp-proxy"]
+categories = ["network-programming", "web-programming"]
 repository = "https://github.com/sircesarium/refractium"
 homepage = "https://github.com/sircesarium/refractium"
 documentation = "https://docs.rs/refractium"
 readme = "README.md"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+absolute_paths = "deny"
 
 [dependencies]
 # Core dependencies
 bytes = "1"
 memchr = "2.8"
 thiserror = "2"
-tokio = { version = "1", features = ["full"] }
-tokio-util = { version = "0.7", features = ["rt"] }
+tokio = { version = "1", features = ["net", "io-util", "sync", "time", "signal", "macros", "rt", "rt-multi-thread"] }
+tokio-util = { version = "0.7" }
 serde = { version = "1.0", features = ["derive"] }
 dyn-clone = "1.0"
 dashmap = "6.1.0"
@@ -25,12 +33,12 @@ heck = "0.5"
 
 # Optional dependencies (CLI & Extras)
 anyhow = { version = "1", optional = true }
-clap = { version = "4.6", features = ["derive"], optional = true }
+clap = { version = "4.6", default-features = false, features = ["derive", "std", "help", "usage", "error-context"], optional = true }
 colored = { version = "3", optional = true }
 toml = { version = "1.1", optional = true }
-tracing = { version = "0.1", optional = true }
-tracing-subscriber = { version = "0.3", optional = true }
-notify = { version = "8.0", optional = true }
+tracing = { version = "0.1", default-features = false, features = ["std"], optional = true }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi", "std"], optional = true }
+notify = { version = "8.0", default-features = false, optional = true }
 
 [features]
 default = ["cli", "logging", "protocols", "watch"]
@@ -63,8 +71,7 @@ path = "src/main.rs"
 required-features = ["cli", "logging"]
 
 [dev-dependencies]
-criterion = { version = "0.8", features = ["async_tokio"] }
-rand = "0.10"
+criterion = { version = "0.8", default-features = false, features = ["async_tokio", "cargo_bench_support"] }
 
 [[bench]]
 name = "protocol_bench"
