@@ -1,5 +1,7 @@
 // @swt-disable max-repetition
 
+#![allow(clippy::multiple_crate_versions)]
+
 use bytes::Bytes;
 use refractium::core::Refractium;
 use refractium::hook_protocol;

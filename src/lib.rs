@@ -1,3 +1,6 @@
+#![deny(missing_docs)]
+#![allow(clippy::multiple_crate_versions)]
+
 //! # Refractium
 //!
 //! A high-performance, lightweight L4 protocol multiplexer.
@@ -45,11 +48,6 @@
 //! }
 //! ```
 
-#![deny(clippy::all)]
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(missing_docs)]
-#![deny(clippy::absolute_paths)]
 
 /// Core logic for proxying and routing.
 pub mod core;
