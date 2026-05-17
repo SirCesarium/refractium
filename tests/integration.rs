@@ -1,3 +1,5 @@
+#![allow(clippy::multiple_crate_versions)]
+
 use refractium::core::Refractium;
 use refractium::protocols::http::Http;
 use refractium::types::{ForwardTarget, ProtocolRoute};

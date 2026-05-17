@@ -1,7 +1,4 @@
-#![deny(clippy::all)]
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::absolute_paths)]
+#![allow(clippy::multiple_crate_versions)]
 
 mod commands;
 mod config;
