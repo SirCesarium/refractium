@@ -8,27 +8,26 @@ type = "bin"
 outputName = "{name}-{os}-{arch}"
 
 [[targets]]
-id = "linux-x64"
+id = "linux-all"
 for = "refractium"
 os = "linux"
-arch = ["x86_64"]
+arch = ["x86_64", "arm64"]
 abi = "gnu"
 packages = ["bin"]
 
 [[targets]]
-id = "linux-arm64"
-for = "refractium"
-os = "linux"
-arch = ["arm64"]
-abi = "gnu"
-packages = ["bin"]
-
-[[targets]]
-id = "windows-x64"
+id = "windows-all"
 for = "refractium"
 os = "windows"
-arch = ["x86_64"]
+arch = ["x86_64", "arm64"]
 abi = "msvc"
+packages = ["bin"]
+
+[[targets]]
+id = "macos-all"
+for = "refractium"
+os = "macos"
+arch = ["x86_64", "arm64"]
 packages = ["bin"]
 
 [[publish]]
