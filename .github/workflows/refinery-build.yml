@@ -10,6 +10,8 @@ jobs:
   build:
     name: ${{ matrix.artifact }} (${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.abi || 'default' }})
     runs-on: ${{ matrix.runs_on }}
+    permissions:
+      contents: read
     env: {}
     strategy:
       fail-fast: false
