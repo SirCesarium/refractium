@@ -1,0 +1,57 @@
+version = 1
+platform = "github"
+lang = "rust"
+
+[[artifacts]]
+name = "refractium"
+type = "bin"
+outputName = "{name}-{os}-{arch}"
+
+[[targets]]
+id = "linux-x64"
+for = "refractium"
+os = "linux"
+arch = ["x86_64"]
+abi = "gnu"
+packages = ["bin"]
+
+[[targets]]
+id = "linux-arm64"
+for = "refractium"
+os = "linux"
+arch = ["arm64"]
+abi = "gnu"
+packages = ["bin"]
+
+[[targets]]
+id = "windows-x64"
+for = "refractium"
+os = "windows"
+arch = ["x86_64"]
+abi = "msvc"
+packages = ["bin"]
+
+[[publish]]
+type = "builtin"
+builtin = "download_artifact"
+targets = "all"
+
+[[publish]]
+type = "builtin"
+builtin = "github_release"
+targets = "all"
+
+[[publish]]
+type = "composite"
+name = "Build and push Docker image"
+action = "docker-publish"
+secrets = ["GITHUB_TOKEN"]
+permissions = { packages = "write" }
+targets = "once"
+
+[[publish]]
+type = "composite"
+name = "Publish to crates.io"
+action = "publish-crates-io"
+secrets = ["CRATES_TOKEN"]
+targets = "once"

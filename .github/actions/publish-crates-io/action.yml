@@ -1,0 +1,7 @@
+name: "Publish to crates.io"
+description: "Publishes the crate to crates.io"
+runs:
+  using: "composite"
+  steps:
+    - run: cargo publish --token "$CRATES_TOKEN"
+      shell: bash
