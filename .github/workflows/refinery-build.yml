@@ -93,6 +93,79 @@ jobs:
             features_str: ""
             default_features: true
             abi: msvc
+          - artifact: refractium
+            artifact_type: bin
+            os: windows
+            arch: arm64
+            runs_on: windows-11-arm
+            output_name: refractium-windows-arm64
+            artifact_bin: refractium
+            target_triple: aarch64-pc-windows-msvc
+            package_type: zip
+            packages:
+              - bin
+            has_deb: false
+            has_rpm: false
+            has_msi: false
+            has_archive: false
+            has_bin: true
+            include_files: []
+            apt_packages: []
+            bin_ext: .exe
+            headers: false
+            linker_env: []
+            features: []
+            features_str: ""
+            default_features: true
+            abi: msvc
+          - artifact: refractium
+            artifact_type: bin
+            os: macos
+            arch: x86_64
+            runs_on: macos-26
+            output_name: refractium-macos-x86_64
+            artifact_bin: refractium
+            target_triple: x86_64-apple-darwin
+            package_type: tar.gz
+            packages:
+              - bin
+            has_deb: false
+            has_rpm: false
+            has_msi: false
+            has_archive: false
+            has_bin: true
+            include_files: []
+            apt_packages: []
+            bin_ext: ""
+            headers: false
+            linker_env: []
+            features: []
+            features_str: ""
+            default_features: true
+          - artifact: refractium
+            artifact_type: bin
+            os: macos
+            arch: arm64
+            runs_on: macos-26
+            output_name: refractium-macos-arm64
+            artifact_bin: refractium
+            target_triple: aarch64-apple-darwin
+            package_type: tar.gz
+            packages:
+              - bin
+            has_deb: false
+            has_rpm: false
+            has_msi: false
+            has_archive: false
+            has_bin: true
+            include_files: []
+            apt_packages: []
+            bin_ext: ""
+            headers: false
+            linker_env: []
+            features: []
+            features_str: ""
+            default_features: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
