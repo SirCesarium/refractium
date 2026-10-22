@@ -178,7 +178,7 @@ jobs:
           cache: true
           toolchain: stable
       - name: Install cbindgen
-        uses: taiki-e/install-action@v2.87.27
+        uses: taiki-e/install-action@v2.87.29
         if: matrix.headers == true
         with:
           tool: cbindgen
@@ -340,7 +340,7 @@ jobs:
         shell: bash
         if: matrix.artifact_type == 'lib' && matrix.has_archive
       - name: Install cargo-deb
-        uses: taiki-e/install-action@v2.87.27
+        uses: taiki-e/install-action@v2.87.29
         if: ${{ matrix.has_deb }}
         with:
           tool: cargo-deb
@@ -354,7 +354,7 @@ jobs:
         shell: bash
         if: ${{ matrix.has_deb }}
       - name: Install cargo-generate-rpm
-        uses: taiki-e/install-action@v2.87.27
+        uses: taiki-e/install-action@v2.87.29
         if: ${{ matrix.has_rpm }}
         with:
           tool: cargo-generate-rpm
@@ -368,7 +368,7 @@ jobs:
         shell: bash
         if: ${{ matrix.has_rpm }}
       - name: Install cargo-wix
-        uses: taiki-e/install-action@v2.87.27
+        uses: taiki-e/install-action@v2.87.29
         if: ${{ matrix.has_msi }}
         with:
           tool: cargo-wix
