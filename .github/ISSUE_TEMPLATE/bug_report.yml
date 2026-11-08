@@ -1,0 +1,182 @@
+name: Bug report
+description: Report a problem with refractium
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below so we can reproduce and fix the issue.
+
+        Before opening a new issue, please search the existing issues to avoid duplicates.
+
+        > [!WARNING]
+        > Do not report security vulnerabilities in a public issue. See the security policy and use the private report link in the issue chooser.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: What went wrong?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact commands, config, and traffic that trigger the bug.
+      placeholder: |
+        1. Start refractium with `refractium -c refractium.toml --debug`
+        2. Send SSH traffic to port 8080
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include the full error message if possible.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: refractium version
+      description: Run `refractium --version` and paste the output here.
+      placeholder: "3.0.13"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: architecture
+    attributes:
+      label: Architecture
+      description: The CPU architecture you are running on.
+      placeholder: "x86_64, aarch64, ..."
+
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation method
+      description: How did you install refractium?
+      options:
+        - cargo install
+        - GitHub release binary
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport
+      description: Which transport is affected by the bug?
+      options:
+        - TCP
+        - UDP
+        - Both
+    validations:
+      required: true
+
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol involved
+      description: Which protocol detection or route is affected?
+      options:
+        - HTTP
+        - HTTPS (SNI)
+        - SSH
+        - DNS
+        - FTP
+        - Custom pattern
+        - Fallback backend
+        - Load balancing or health checks
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hot_reload
+    attributes:
+      label: Hot reload
+      description: Was hot reload enabled when the bug happened?
+      options:
+        - Enabled
+        - Disabled
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: features
+    attributes:
+      label: Build features
+      description: Which cargo features are enabled? The default is `cli,logging,protocols,watch`.
+      placeholder: "default, or full, or cli,logging,protocols,watch,hooks"
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Paste the relevant parts of `refractium.toml`. Remove credentials and any addresses you cannot share.
+      render: toml
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Run with `--debug` or `RUST_LOG=debug` and paste the relevant output.
+      render: shell
+      placeholder: |
+        refractium -c refractium.toml --debug
+
+  - type: input
+    id: scale
+    attributes:
+      label: Traffic volume
+      description: Optional, but useful for load, timeout, and connection-limit bugs.
+      placeholder: "Example: ~200 concurrent connections, 50 req/s"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context that helps explain the problem.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched the existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability, or I have reported it privately.
+          required: true

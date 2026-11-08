@@ -1,0 +1,88 @@
+name: Protocol support
+description: Request support for a new protocol or traffic signature
+title: "[Protocol]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to request support for a protocol that refractium does not detect yet.
+
+        Before opening a request, check the built-in protocols table in the README and try defining the signature with `patterns` in `refractium.toml`.
+
+  - type: input
+    id: protocol_name
+    attributes:
+      label: Protocol name
+      description: The name of the protocol or service.
+      placeholder: "Example: MySQL, PostgreSQL, MQTT, WireGuard"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport
+      description: Which transport does this protocol use?
+      options:
+        - TCP
+        - UDP
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: docs
+    attributes:
+      label: Documentation or specification
+      description: Link to the official protocol documentation or wire format specification.
+      placeholder: "https://..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: signature
+    attributes:
+      label: Identifying bytes
+      description: The first bytes that identify this protocol. Paste them as escaped text or hex, and say how many bytes are needed.
+      placeholder: |
+        Escaped: \x16\x03\x01
+        Hex: 16 03 01
+        Bytes needed: 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: Example traffic
+      description: A capture or command that produces a connection using this protocol, without secrets.
+      placeholder: |
+        openssl s_client -connect example.com:443
+      render: shell
+
+  - type: dropdown
+    id: workaround
+    attributes:
+      label: Custom pattern support
+      description: Does the protocol currently work through manual `patterns` in the config?
+      options:
+        - Works with custom `patterns`
+        - Signature cannot be expressed with `patterns`
+        - Not tried yet
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other details, links, or captures that would help implement support.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched the existing issues and this is not a duplicate.
+          required: true

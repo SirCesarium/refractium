@@ -1,0 +1,68 @@
+name: Feature request
+description: Suggest an idea or improvement for refractium
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please describe the problem and the solution you have in mind.
+
+        Before opening a new issue, please search the existing issues to avoid duplicates.
+
+        If your request is about supporting a new protocol, use the **Protocol support** template instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What problem are you trying to solve? Is your request related to a frustration or a missing capability?
+      placeholder: I'm always frustrated when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe what you would like to happen, including the config or CLI shape you imagine.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any alternative solutions or workarounds you have considered.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      description: Which parts of refractium does this feature apply to?
+      options:
+        - label: Protocol detection
+        - label: Routing and fallbacks
+        - label: Load balancing
+        - label: Health checks
+        - label: Hot reload
+        - label: Hooks and packet interception
+        - label: TCP / UDP engine
+        - label: Configuration (`refractium.toml`)
+        - label: CLI
+        - label: Rust library API
+        - label: Documentation
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context, examples, or mockups about the feature request.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched the existing issues and this is not a duplicate.
+          required: true

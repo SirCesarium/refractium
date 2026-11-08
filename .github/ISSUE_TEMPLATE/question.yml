@@ -1,0 +1,53 @@
+name: Question
+description: Ask a question or seek guidance about refractium
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reaching out. Please give enough context for someone to answer without guessing.
+
+        Before opening a new issue, please search the existing issues and the documentation to avoid duplicates.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you want to know?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What are you trying to achieve? Include your setup, config, and what you have already tried.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: refractium version
+      description: Run `refractium --version` and paste the output here, if relevant.
+      placeholder: "3.0.13"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+        - Not applicable
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched the existing issues and the documentation.
+          required: true
