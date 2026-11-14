@@ -8,7 +8,6 @@ license = "MIT"
 keywords = ["reverse-proxy", "multiplexer", "port-multiplexing", "protocol-routing", "tcp-proxy"]
 categories = ["network-programming", "web-programming"]
 repository = "https://github.com/sircesarium/refractium"
-homepage = "https://github.com/sircesarium/refractium"
 documentation = "https://docs.rs/refractium"
 readme = "README.md"
 
